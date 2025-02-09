@@ -9,8 +9,8 @@ use tokio::spawn;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use futures_util::StreamExt;
 
-const DOWNLOAD_URL: &str = "";
-const FILE_NAME: &str = "";
+const DOWNLOAD_URL: &str = "https://testfile.org/files-5GB";
+const FILE_NAME: &str = "file.zip";
 
 
 async fn linear_download() -> Result<(), Box<dyn error::Error>> {
@@ -70,7 +70,7 @@ async fn download() -> Result<(), Box<dyn error::Error>> {
 
         println!("does not accept range"); 
     }
-
+    
     Ok(())
 }
 
