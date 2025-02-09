@@ -671,7 +671,6 @@ dependencies = [
 name = "multithreaded_download_manager"
 version = "0.1.0"
 dependencies = [
- "bytes",
  "futures-util",
  "indicatif",
  "reqwest",
