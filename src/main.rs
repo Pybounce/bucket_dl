@@ -1,5 +1,5 @@
 use std::{
-    error, fs::{File, OpenOptions}, io::{Seek, Write}, sync::Arc, time::Instant
+    error, fs::{File, OpenOptions}, io::{Seek, Write}, path::Path, sync::Arc, time::Instant
 };
 
 use reqwest::{self, Client};
@@ -8,28 +8,25 @@ use tokio::spawn;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use futures_util::StreamExt;
 
-const DOWNLOAD_URL: &str = "http://speedtest.tele2.net/1GB.zip";
-const FILE_NAME: &str = "file.zip";
 
-async fn download() -> Result<(), Box<dyn error::Error>> {
+
+async fn download(url: &String, file_path: &String) -> Result<(), Box<dyn error::Error>> {
 
     let mp = MultiProgress::new();
     let sty = ProgressStyle::with_template(
-        "[{elapsed_precise}] {bar:40.cyan/blue} {bytes}/{total_bytes} ({eta})",
+        "[{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})",
     )
     .unwrap()
     .progress_chars("##-");
 
-
-
     let client = Arc::new(Client::new());
-    let head_response = client.head(DOWNLOAD_URL).send().await?;
+    let head_response = client.head(url).send().await?;
     let headers = head_response.headers();
     let content_length: usize = headers.get("content-length").unwrap().to_str()?.parse::<usize>()?;
     let chunk_size: usize = get_chunk_size(content_length, headers.contains_key("accept-ranges"));
 
     let mut tasks: Vec<tokio::task::JoinHandle<Result<(), ()>>> = Vec::with_capacity(content_length / chunk_size);
-    let _file = File::create(FILE_NAME)?;
+    let _file = File::create(file_path)?;
 
     for start_byte in (0..content_length).step_by(chunk_size) {
         let end_byte = (start_byte + chunk_size).min(content_length);
@@ -37,8 +34,8 @@ async fn download() -> Result<(), Box<dyn error::Error>> {
         let pb = mp.add(ProgressBar::new((end_byte - start_byte) as u64));
         pb.set_style(sty.clone());
         pb.set_position(0);
-        
-        tasks.push(spawn(download_range(Arc::clone(&client), start_byte, end_byte - 1, Arc::new(pb))));
+
+        tasks.push(spawn(download_range(Arc::clone(&client), start_byte, end_byte - 1, Arc::new(pb), url.clone(), file_path.clone())));
     }
 
     for task in tasks.iter_mut() {
@@ -54,18 +51,18 @@ fn get_chunk_size(content_length: usize, accepts_ranges: bool) -> usize {
     return (content_length / 6) + 1;
 }
 
-fn undo_all() {
+fn undo_all(file_path: &str) {
     println!("Deleting unfinished file...");
-    std::fs::remove_file(FILE_NAME).unwrap();
+    std::fs::remove_file(file_path).unwrap();
     println!("Deleted unfinished file.");
 }
 
-async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize, pb: Arc<ProgressBar>) -> Result<(), ()> {
+async fn download_range<'a>(client: Arc<Client>, start_byte: usize, end_byte: usize, pb: Arc<ProgressBar>, url: String, file_path: String) -> Result<(), ()> {
     let range = format!("bytes={}-{}", start_byte, end_byte);
     
-    if let Ok(response) = client.get(DOWNLOAD_URL).header("Range", range).send().await {
+    if let Ok(response) = client.get(url).header("Range", range).send().await {
 
-        let mut file = OpenOptions::new().write(true).open(FILE_NAME).unwrap();
+        let mut file = OpenOptions::new().write(true).open(Path::new(&file_path)).unwrap();
         let _ = file.seek(std::io::SeekFrom::Start(start_byte as u64)).unwrap();
 
         let mut stream = response.bytes_stream();
@@ -89,33 +86,44 @@ async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize,
     return Err(());
 }
 
-fn compare() -> Result<(), Box<dyn std::error::Error + 'static>> {
-    let threaded = std::fs::read_to_string(FILE_NAME).unwrap();
-    let norm = std::fs::read_to_string("1GB.zip").unwrap();
-    assert_eq!(threaded, norm);
-    Ok(())
+fn parse_input() -> Result<(String, String), ()> {
+    let args: Vec<String> = std::env::args().collect();
+
+    let mut url = "";
+    let mut out = "";
+    for i in 0..(args.len() - 1) {
+        if args[i] == "-url" {
+            url = &args[i + 1];
+        }
+        if args[i] == "-out" {
+            out = &args[i + 1];
+        }
+    }
+    if url == "" || out =="" { return Err(()); }
+    return Ok((url.to_owned(), out.to_owned()));
+
+    //return Ok(("http://speedtest.tele2.net/1GB.zip".to_owned(), "file.zip".to_owned()));
 }
 
 #[tokio::main]
 async fn main() {
-    //match compare() {
-    //    Ok(_) => println!("asdad"),
-    //    Err(x) => println!("error: {:?}", x),
-    //}
-    //return;
-    let now = Instant::now();
-    
-    println!("downloading multithreaded");
-
-    match download().await {
-        Ok(_) => {
-            let duration = now.elapsed();
-            println!("done in {duration:?}")
+    match parse_input() {
+        Ok((url, file_path)) => {
+            let now = Instant::now();
+            
+            match download(&url, &file_path).await {
+                Ok(_) => {
+                    let duration = now.elapsed();
+                    println!("\nDone in {duration:?}")
+                },
+                Err(x) => {
+                    println!("error: {:?}", x);
+                    undo_all(&file_path);
+                },
+            }
         },
-        Err(x) => {
-            println!("error: {:?}", x);
-            undo_all();
+        Err(_) => {
+            println!("Error parsing input.")
         },
     }
-    
 }

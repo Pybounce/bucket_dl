@@ -1,5 +1,7 @@
 Theory Crafting
 
+- [ ] Arg flags for url and output path
+- [ ] github readme
 - [ ] Stop unwrapping
   - It will cause a panic
 - [ ] Saving progress mid crash
