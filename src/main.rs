@@ -1,15 +1,6 @@
-use std::{
-    error, fs::{File, OpenOptions}, io::{Seek, Write}, path::Path, sync::{Arc}, time::Instant
-};
 
-use multithreaded_download_manager::{download, ChunkProgress};
-use reqwest::{self, Client};
-use tokio::{spawn, sync::mpsc::{self, Receiver, Sender}};
-
+use multithreaded_download_manager::download;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use futures_util::StreamExt;
-
-
 
 fn parse_input() -> Result<(String, String), ()> {
 
@@ -37,9 +28,6 @@ fn parse_input() -> Result<(String, String), ()> {
 async fn main() {
     match parse_input() {
         Ok((url, file_path)) => {   
-
-            let (tx, mut rx): (Sender<ChunkProgress>, Receiver<ChunkProgress>) = mpsc::channel(32);
-
             let mp = MultiProgress::new();
             let sty = ProgressStyle::with_template(
                 "[{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})",
@@ -47,7 +35,7 @@ async fn main() {
             .unwrap()
             .progress_chars("##-");
 
-            let chunk_sizes = download(&url, &file_path, tx).await.unwrap();
+            let (chunk_sizes, mut rx) = download(&url, &file_path).await.unwrap();
             let mut progress_bars = Vec::<ProgressBar>::with_capacity(chunk_sizes.len());
 
             for chunk_size in chunk_sizes.iter() {

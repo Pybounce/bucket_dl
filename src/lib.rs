@@ -2,11 +2,8 @@
 use std::{
     error, fs::{File, OpenOptions}, io::{Seek, Write}, path::Path, sync::Arc
 };
-
 use reqwest::{self, Client};
 use tokio::{spawn, sync::mpsc::{self, Receiver, Sender}};
-
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use futures_util::StreamExt;
 
 
@@ -16,8 +13,6 @@ pub struct ChunkProgress {
 }
 
 async fn start_download(url: &String, file_path: &String, sender: Sender<ChunkProgress>) -> Result<Vec<usize>, Box<dyn error::Error>> {
-
-
 
     let client = Arc::new(Client::new());
     let head_response = client.head(url).send().await?;
@@ -42,10 +37,11 @@ async fn start_download(url: &String, file_path: &String, sender: Sender<ChunkPr
     return Ok(chunk_sizes);
 }
 
-pub async fn download(url: &String, file_path: &String, sender: Sender<ChunkProgress>) -> Result<Vec<usize>, Box<dyn error::Error>>{
+pub async fn download(url: &String, file_path: &String) -> Result<(Vec<usize>, Receiver<ChunkProgress>), Box<dyn error::Error>>{
+    let (tx, rx): (Sender<ChunkProgress>, Receiver<ChunkProgress>) = mpsc::channel(32);
 
-    match start_download(&url, &file_path, sender).await {
-        Ok(chunk_sizes) => Ok(chunk_sizes),
+    match start_download(&url, &file_path, tx).await {
+        Ok(chunk_sizes) => Ok((chunk_sizes, rx)),
         Err(x) => {
             //println!("error: {:?}", x);
             undo_all(&file_path);
