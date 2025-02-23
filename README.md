@@ -20,3 +20,15 @@ Theory Crafting
   - probably remove main.rs but make an example with indicatif
 
 - ERROR HANDLING
+
+---
+
+Better architecture
+
+- Have a DownloadManager object
+- It has an Init constructor that returns some download data
+  - Download data contains chunk sizes/count
+- It has another public endpoint for beginning the download
+- The download manager starts all the threaded downloads and manages them
+  - So if one errors it can retry etc
+- The download manager will then have a 1-1 channel for the end user, to tell them if it's ongoing or finished or errored etc
