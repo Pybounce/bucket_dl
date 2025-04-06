@@ -14,21 +14,43 @@ use models::{ChunkProgress, Update};
 
 
 pub struct TheClient {
-    chunk_sizes: Vec<usize>,
-    reciever: Receiver<ChunkProgress>
+    chunk_sizes: Option<Vec<usize>>,
+    reciever: Option<Receiver<ChunkProgress>>,
+    url: String,
+    file_path: String
 }
 
 impl TheClient {
-    pub fn init(url: &String, file_path: &String) -> Self {
-        todo!();
+    pub fn init(url: &String, file_path: &String) -> Result<Self, Box<dyn error::Error>> {
+        return Ok(Self {
+            chunk_sizes: None,
+            reciever: None,
+            url: url.clone(),
+            file_path: file_path.clone()
+        });
+    }
+
+    pub async fn download(&mut self) -> Result<(), Box<dyn error::Error>>{
+        let (tx, rx): (Sender<ChunkProgress>, Receiver<ChunkProgress>) = mpsc::channel(32);
+        self.reciever = Some(rx);
+        self.chunk_sizes = start_download(&self.url, &self.file_path, tx).await.unwrap().into();
+        return Ok(());
     }
 
     pub async fn progress(&mut self) -> Update {
-        todo!();
-        //return self.reciever.recv().await;
+        return match &self.reciever {
+            Some(_) => {
+                let x = self.reciever.as_mut().unwrap().recv().await;
+                return match x {
+                    Some(x) => Update::Progress(x),
+                    None => Update::Finished,
+                };
+            },
+            None => Update::NotStarted,
+        };
     }
 
-    pub fn chunk_sizes(&self) -> &Vec<usize> {
+    pub fn chunk_sizes(&self) -> &Option<Vec<usize>> {
         return &self.chunk_sizes;
     }
     

@@ -7,5 +7,6 @@ pub struct ChunkProgress {
 pub enum Update {
     Progress(ChunkProgress),
     Finished,
-    Failed
+    Failed,
+    NotStarted
 }

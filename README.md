@@ -32,3 +32,10 @@ Better architecture
 - The download manager starts all the threaded downloads and manages them
   - So if one errors it can retry etc
 - The download manager will then have a 1-1 channel for the end user, to tell them if it's ongoing or finished or errored etc
+
+---
+
+Enhancements
+
+- [ ] Chunk sizes can be (size, last_size, count)
+  - Can still iter through each individual size from api

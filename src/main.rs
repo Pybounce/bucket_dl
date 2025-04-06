@@ -1,5 +1,5 @@
 
-use multithreaded_download_manager::download;
+use multithreaded_download_manager::{download, models::Update, TheClient};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 fn parse_input() -> Result<(String, String), ()> {
@@ -35,23 +35,37 @@ async fn main() {
             .unwrap()
             .progress_chars("##-");
 
-            let (chunk_sizes, mut rx) = download(&url, &file_path).await.unwrap();
-            let mut progress_bars = Vec::<ProgressBar>::with_capacity(chunk_sizes.len());
+            if let Ok(mut client) = TheClient::init(&url, &file_path) {
+                if let Ok(_) = client.download().await {
+                    let chunk_sizes = client.chunk_sizes().clone().unwrap();
 
-            for chunk_size in chunk_sizes.iter() {
-                let pb = mp.add(ProgressBar::new(*chunk_size as u64));
-                pb.set_style(sty.clone());
-                pb.set_position(0);
-                progress_bars.push(pb);
-            }
-            while let Some(chunk_progress) = rx.recv().await {
-                progress_bars[chunk_progress.id as usize].set_position(chunk_progress.progress);
+                    let mut progress_bars = Vec::<ProgressBar>::with_capacity(chunk_sizes.len());
+
+                    for chunk_size in chunk_sizes.iter() {
+                        let pb = mp.add(ProgressBar::new(*chunk_size as u64));
+                        pb.set_style(sty.clone());
+                        pb.set_position(0);
+                        progress_bars.push(pb);
+                    }
+
+                    loop {
+                        match client.progress().await {
+                            Update::Progress(chunk_progress) => {
+                                progress_bars[chunk_progress.id as usize].set_position(chunk_progress.progress);
                 
-                if chunk_sizes[chunk_progress.id as usize] <= chunk_progress.progress as usize {
-                    progress_bars[chunk_progress.id as usize].finish();
-                }
-            }
+                                if chunk_sizes[chunk_progress.id as usize] <= chunk_progress.progress as usize {
+                                    progress_bars[chunk_progress.id as usize].finish();
+                                }
+                            },
+                            Update::Finished => break,
+                            Update::Failed => break,
+                            Update::NotStarted => break,
+                        }
+                    }
 
+                }
+
+            }
             println!("DONE");
 
         },
