@@ -9,13 +9,13 @@ use reqwest::{self, Client};
 use tokio::{spawn, sync::mpsc::{self, Receiver, Sender}};
 use futures_util::StreamExt;
 
-use models::{ChunkProgress, Update};
+use models::{BucketProgress, Update};
 
 
 
 pub struct TheClient {
-    chunk_sizes: Option<Vec<usize>>,
-    reciever: Option<Receiver<ChunkProgress>>,
+    bucket_sizes: Option<Vec<usize>>,
+    reciever: Option<Receiver<BucketProgress>>,
     url: String,
     file_path: String
 }
@@ -23,7 +23,7 @@ pub struct TheClient {
 impl TheClient {
     pub fn init(url: &String, file_path: &String) -> Result<Self, Box<dyn error::Error>> {
         return Ok(Self {
-            chunk_sizes: None,
+            bucket_sizes: None,
             reciever: None,
             url: url.clone(),
             file_path: file_path.clone()
@@ -31,9 +31,9 @@ impl TheClient {
     }
 
     pub async fn download(&mut self) -> Result<(), Box<dyn error::Error>>{
-        let (tx, rx): (Sender<ChunkProgress>, Receiver<ChunkProgress>) = mpsc::channel(32);
+        let (tx, rx): (Sender<BucketProgress>, Receiver<BucketProgress>) = mpsc::channel(32);
         self.reciever = Some(rx);
-        self.chunk_sizes = start_download(&self.url, &self.file_path, tx).await.unwrap().into();
+        self.bucket_sizes = start_download(&self.url, &self.file_path, tx).await.unwrap().into();
         return Ok(());
     }
 
@@ -50,39 +50,39 @@ impl TheClient {
         };
     }
 
-    pub fn chunk_sizes(&self) -> &Option<Vec<usize>> {
-        return &self.chunk_sizes;
+    pub fn bucket_sizes(&self) -> &Option<Vec<usize>> {
+        return &self.bucket_sizes;
     }
     
 }
 
 
-async fn start_download(url: &String, file_path: &String, sender: Sender<ChunkProgress>) -> Result<Vec<usize>, Box<dyn error::Error>> {
+async fn start_download(url: &String, file_path: &String, sender: Sender<BucketProgress>) -> Result<Vec<usize>, Box<dyn error::Error>> {
 
     let client = Arc::new(Client::new());
     let head_response = client.head(url).send().await?;
     let headers = head_response.headers();
     let content_length: usize = headers.get("content-length").unwrap().to_str()?.parse::<usize>()?;
-    let chunk_size: usize = get_chunk_size(content_length, headers.contains_key("accept-ranges"));
+    let bucket_size: usize = get_bucket_size(content_length, headers.contains_key("accept-ranges"));
 
     let _file = File::create(file_path)?;
-    let mut chunk_sizes: Vec<usize> = vec![];
-    let mut chunk_id: u8 = 0;
-    for start_byte in (0..content_length).step_by(chunk_size) {
-        let end_byte = (start_byte + chunk_size).min(content_length);
-        spawn(download_range(Arc::clone(&client), start_byte, end_byte - 1, url.clone(), file_path.clone(), sender.clone(), chunk_id));
-        chunk_sizes.push(end_byte - start_byte);
-        chunk_id += 1;
+    let mut bucket_sizes: Vec<usize> = vec![];
+    let mut bucket_id: u8 = 0;
+    for start_byte in (0..content_length).step_by(bucket_size) {
+        let end_byte = (start_byte + bucket_size).min(content_length);
+        spawn(download_range(Arc::clone(&client), start_byte, end_byte - 1, url.clone(), file_path.clone(), sender.clone(), bucket_id));
+        bucket_sizes.push(end_byte - start_byte);
+        bucket_id += 1;
     }
 
-    return Ok(chunk_sizes);
+    return Ok(bucket_sizes);
 }
 
-pub async fn download(url: &String, file_path: &String) -> Result<(Vec<usize>, Receiver<ChunkProgress>), Box<dyn error::Error>>{
-    let (tx, rx): (Sender<ChunkProgress>, Receiver<ChunkProgress>) = mpsc::channel(32);
+pub async fn download(url: &String, file_path: &String) -> Result<(Vec<usize>, Receiver<BucketProgress>), Box<dyn error::Error>>{
+    let (tx, rx): (Sender<BucketProgress>, Receiver<BucketProgress>) = mpsc::channel(32);
 
     match start_download(&url, &file_path, tx).await {
-        Ok(chunk_sizes) => Ok((chunk_sizes, rx)),
+        Ok(bucket_sizes) => Ok((bucket_sizes, rx)),
         Err(x) => {
             //println!("error: {:?}", x);
             undo_all(&file_path);
@@ -91,7 +91,7 @@ pub async fn download(url: &String, file_path: &String) -> Result<(Vec<usize>, R
     }
 }
 
-fn get_chunk_size(content_length: usize, accepts_ranges: bool) -> usize {
+fn get_bucket_size(content_length: usize, accepts_ranges: bool) -> usize {
     if accepts_ranges == false { return content_length; }
     return (content_length / 6) + 1;
 }
@@ -102,7 +102,7 @@ fn undo_all(file_path: &str) {
     println!("Deleted unfinished file.");
 }
 
-async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize, url: String, file_path: String, sender: Sender<ChunkProgress>, chunk_id: u8) -> Result<(), ()> {
+async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize, url: String, file_path: String, sender: Sender<BucketProgress>, bucket_id: u8) -> Result<(), ()> {
     let range = format!("bytes={}-{}", start_byte, end_byte);
     
     if let Ok(response) = client.get(url).header("Range", range).send().await {
@@ -114,12 +114,12 @@ async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize,
         let mut download_offset = 0;
 
         while let Some(item) = stream.next().await {
-            let chunk = item.unwrap();
+            let bucket = item.unwrap();
 
-            let _ = file.write(&chunk).unwrap();
+            let _ = file.write(&bucket).unwrap();
 
-            download_offset += chunk.len() as u64;
-            sender.send(ChunkProgress { id: chunk_id, progress: download_offset }).await.unwrap();
+            download_offset += bucket.len() as u64;
+            sender.send(BucketProgress { id: bucket_id, progress: download_offset }).await.unwrap();
 
         }
         file.flush().unwrap();

@@ -37,12 +37,12 @@ async fn main() {
 
             if let Ok(mut client) = TheClient::init(&url, &file_path) {
                 if let Ok(_) = client.download().await {
-                    let chunk_sizes = client.chunk_sizes().clone().unwrap();
+                    let bucket_sizes = client.bucket_sizes().clone().unwrap();
 
-                    let mut progress_bars = Vec::<ProgressBar>::with_capacity(chunk_sizes.len());
+                    let mut progress_bars = Vec::<ProgressBar>::with_capacity(bucket_sizes.len());
 
-                    for chunk_size in chunk_sizes.iter() {
-                        let pb = mp.add(ProgressBar::new(*chunk_size as u64));
+                    for bucket_size in bucket_sizes.iter() {
+                        let pb = mp.add(ProgressBar::new(*bucket_size as u64));
                         pb.set_style(sty.clone());
                         pb.set_position(0);
                         progress_bars.push(pb);
@@ -50,11 +50,11 @@ async fn main() {
 
                     loop {
                         match client.progress().await {
-                            Update::Progress(chunk_progress) => {
-                                progress_bars[chunk_progress.id as usize].set_position(chunk_progress.progress);
+                            Update::Progress(bucket_progress) => {
+                                progress_bars[bucket_progress.id as usize].set_position(bucket_progress.progress);
                 
-                                if chunk_sizes[chunk_progress.id as usize] <= chunk_progress.progress as usize {
-                                    progress_bars[chunk_progress.id as usize].finish();
+                                if bucket_sizes[bucket_progress.id as usize] <= bucket_progress.progress as usize {
+                                    progress_bars[bucket_progress.id as usize].finish();
                                 }
                             },
                             Update::Finished => break,
