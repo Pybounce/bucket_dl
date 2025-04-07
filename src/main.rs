@@ -41,28 +41,24 @@ async fn main() {
                     let bucket_sizes = client.bucket_sizes();
 
                     let mut progress_bars = Vec::<ProgressBar>::with_capacity(bucket_sizes.len());
-                  //  println!("bucket size len: {}", bucket_sizes.len());
 
                     for i in 0..bucket_sizes.len() {
                         let bucket_size = bucket_sizes[i];
-                       // println!("bucket {} size: {}", i, bucket_size);
                         let pb = mp.add(ProgressBar::new(bucket_size as u64));
                         pb.set_style(sty.clone());
                         pb.set_position(0);
                         progress_bars.push(pb);
                     }
 
-                  //  println!("starting download");
                     loop {
                         match client.progress().await {
                             Update::Progress(bucket_progress) => {
+                                if progress_bars[bucket_progress.id as usize].is_finished() { continue; }
+
                                 progress_bars[bucket_progress.id as usize].set_position(bucket_progress.progress);
                 
                                 if bucket_sizes[bucket_progress.id as usize] <= bucket_progress.progress {
-                                    if progress_bars[bucket_progress.id as usize].is_finished() == false {
-                                        progress_bars[bucket_progress.id as usize].finish();
-                                        progress_bars[bucket_progress.id as usize].finish_with_message("asd");
-                                    }
+                                    progress_bars[bucket_progress.id as usize].finish();
                                 }
                             },
                             Update::Finished => {

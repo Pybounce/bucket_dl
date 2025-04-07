@@ -43,16 +43,6 @@ impl Bucket {
         return BucketProgress { id: self.id, progress: self.bytes_downloaded() };
     }
 
-    pub async fn download_update(&mut self) -> Option<BucketProgress> {
-        if let Ok(_) = self.bytes_download_watcher.changed().await {
-            return BucketProgress {
-                id: self.id,
-                progress: self.bytes_downloaded(),
-            }.into();
-        }
-        return None;
-    }
-
     pub fn finished(&self) -> bool {
         return self.bytes_downloaded() >= self.size;
     }
@@ -95,45 +85,14 @@ impl TheClient {
             if !b.finished() { finished = false; }
         }
         if finished == true {
-            println!("asd");
             return Update::Finished;
         }
         else {
             tokio::task::yield_now().await;
             let bucket_update = self.buckets.as_mut().unwrap()[self.current_bucket_index].bucket_progress();
-            //if self.current_bucket_index == 5 {
-            //    println!("prog {} / {}", bucket_update.progress, self.buckets.as_mut().unwrap()[self.current_bucket_index].size);
-            //}
             self.current_bucket_index = (self.current_bucket_index + 1) % self.buckets.as_mut().unwrap().len();
             return Update::Progress(bucket_update);
         }
-
-
-        //while finished == false {
-        //    if self.buckets.as_mut().unwrap()[self.current_bucket_index].finished() == false {
-        //        match self.buckets.as_mut().unwrap()[self.current_bucket_index].bytes_download_watcher.has_changed() {
-        //            Ok(changed) => {
-        //                if changed == true {
-        //                    let _ = self.buckets.as_mut().unwrap()[self.current_bucket_index].bytes_download_watcher.changed().await;
-        //                    self.current_bucket_index = (self.current_bucket_index + 1) % self.buckets.as_mut().unwrap().len();
-        //                    return Update::Progress(self.buckets.as_mut().unwrap()[self.current_bucket_index].bucket_progress());
-        //                }
-        //            },
-        //            Err(_) => (),
-        //        }
-        //    }
-        //    self.current_bucket_index = (self.current_bucket_index + 1) % self.buckets.as_mut().unwrap().len();
-//
-//
-        //    finished = true;
-        //    for b in self.buckets.as_mut().unwrap() {
-        //        if !b.finished() { finished = false; }
-        //    }
-//
-        //    tokio::task::yield_now().await;
-        //}
-
-      //  return Update::Finished;
     }
 
     pub fn bucket_sizes(&mut self) -> Vec<u64> {
@@ -142,14 +101,7 @@ impl TheClient {
         for b in buckets {
             sizes.push(b.size);
         }
-        //for bs in self.buckets.as_mut().unwrap().into_iter().map(|b| b.size) {
-        //    sizes.push(bs);
-        //}
         return sizes;
-        //match self.buckets {
-        //    Some(buckets) => { return buckets.iter().map(|b| b.bucket_progress().progress).into_iter(); },
-        //    None => todo!(),
-        //};
     }
     
 }
@@ -169,7 +121,6 @@ async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>,
     for start_byte in (0..content_length).step_by(standard_bucket_size) {
         let end_byte = (start_byte + standard_bucket_size).min(content_length);
         let bucket_size = end_byte - start_byte;
-        println!("calc bs: {}", bucket_size);
         let (w_tx, w_rx) = watch::channel::<u64>(0);
         let (ks_tx, ks_rx) = oneshot::channel::<bool>();
         
@@ -181,7 +132,6 @@ async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>,
             w_rx, 
             ks_tx
         ));
-        println!("BUCKET ADDED: {}", bucket_id);
         bucket_id += 1;
     }
 
@@ -215,7 +165,7 @@ async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize,
         while let Some(item) = stream.next().await {
 
             if let Ok(kill) = kill_switch.try_recv() {
-              //  if kill { break; }
+                if kill { break; }
             }
 
             let bytes = item.unwrap();
