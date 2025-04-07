@@ -1,5 +1,5 @@
 
-use multithreaded_download_manager::{download, models::Update, TheClient};
+use multithreaded_download_manager::{models::Update, TheClient};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 fn parse_input() -> Result<(String, String), ()> {
@@ -37,29 +37,46 @@ async fn main() {
 
             if let Ok(mut client) = TheClient::init(&url, &file_path) {
                 if let Ok(_) = client.download().await {
-                    let bucket_sizes = client.bucket_sizes().clone().unwrap();
+
+                    let bucket_sizes = client.bucket_sizes();
 
                     let mut progress_bars = Vec::<ProgressBar>::with_capacity(bucket_sizes.len());
+                  //  println!("bucket size len: {}", bucket_sizes.len());
 
-                    for bucket_size in bucket_sizes.iter() {
-                        let pb = mp.add(ProgressBar::new(*bucket_size as u64));
+                    for i in 0..bucket_sizes.len() {
+                        let bucket_size = bucket_sizes[i];
+                       // println!("bucket {} size: {}", i, bucket_size);
+                        let pb = mp.add(ProgressBar::new(bucket_size as u64));
                         pb.set_style(sty.clone());
                         pb.set_position(0);
                         progress_bars.push(pb);
                     }
 
+                  //  println!("starting download");
                     loop {
                         match client.progress().await {
                             Update::Progress(bucket_progress) => {
                                 progress_bars[bucket_progress.id as usize].set_position(bucket_progress.progress);
                 
-                                if bucket_sizes[bucket_progress.id as usize] <= bucket_progress.progress as usize {
-                                    progress_bars[bucket_progress.id as usize].finish();
+                                if bucket_sizes[bucket_progress.id as usize] <= bucket_progress.progress {
+                                    if progress_bars[bucket_progress.id as usize].is_finished() == false {
+                                        progress_bars[bucket_progress.id as usize].finish();
+                                        progress_bars[bucket_progress.id as usize].finish_with_message("asd");
+                                    }
                                 }
                             },
-                            Update::Finished => break,
-                            Update::Failed => break,
-                            Update::NotStarted => break,
+                            Update::Finished => {
+                                println!("finished");
+                                break;
+                            },
+                            Update::Failed => {
+                                println!("failed");
+                                break;
+                            },
+                            Update::NotStarted => {
+                                println!("not started");
+                                break;
+                            },
                         }
                     }
 
