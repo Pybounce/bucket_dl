@@ -1,4 +1,5 @@
 
+use futures_util::StreamExt;
 use multithreaded_download_manager::{models::DownloadStatus, TheClient};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
@@ -36,7 +37,7 @@ async fn main() {
             .progress_chars("##-");
 
             if let Ok(mut client) = TheClient::init(&url, &file_path) {
-                if let Ok(_) = client.download().await {
+                if let Ok(_) = client.begin_download().await {
 
                     let bucket_sizes = client.bucket_sizes();
 
@@ -50,7 +51,9 @@ async fn main() {
                         progress_bars.push(pb);
                     }
 
-                    for bucket_progress in client.progress().await {
+                    let mut bucket_prog_stream = client.progress_stream();
+
+                    while let Some(bucket_progress) = bucket_prog_stream.next().await {
                         if progress_bars[bucket_progress.id as usize].is_finished() { continue; }
 
                         progress_bars[bucket_progress.id as usize].set_position(bucket_progress.progress);

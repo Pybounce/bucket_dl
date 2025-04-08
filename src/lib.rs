@@ -1,17 +1,19 @@
 
 pub mod models;
-
+mod delay;
 
 use std::{
-    error, fs::{File, OpenOptions}, io::{Seek, Write}, path::Path, sync::Arc
+    error, fs::{File, OpenOptions}, future::Future, io::{Seek, Write}, path::Path, sync::Arc, task::Poll, time::Duration
 };
+use delay::Delay;
 use reqwest::{self, Client};
 use tokio::{spawn, sync::{mpsc::{self, Receiver, Sender}, oneshot, watch}};
-use futures_util::StreamExt;
+use futures_util::{Stream, StreamExt};
+use std::pin::Pin;
 
 use models::{BucketProgress, DownloadStatus};
 
-struct Bucket {
+pub struct Bucket {
     id: u8,
     /// Current amount of bytes downloaded.
     bytes_download_watcher: watch::Receiver<u64>,
@@ -52,7 +54,6 @@ pub struct TheClient {
     buckets: Option<Vec<Bucket>>,
     url: String,
     file_path: String,
-    current_bucket_index: usize,
     download_status: DownloadStatus
 }
 
@@ -62,12 +63,11 @@ impl TheClient {
             buckets: None,
             url: url.clone(),
             file_path: file_path.clone(),
-            current_bucket_index: 0,
             download_status: DownloadStatus::NotStarted
         });
     }
 
-    pub async fn download(&mut self) -> Result<(), Box<dyn error::Error>>{
+    pub async fn begin_download(&mut self) -> Result<(), Box<dyn error::Error>>{
         match start_download(&self.url, &self.file_path).await {
             Ok(b) => {
                 self.buckets = b.into();
@@ -79,28 +79,9 @@ impl TheClient {
         return Ok(());
     }
 
-    pub async fn progress(&mut self) -> impl Iterator<Item = BucketProgress> + '_ {
-
-        std::iter::from_fn(move || {
-            if self.buckets.is_none() { return None; }
-
-            let mut finished = true;
-            for b in self.buckets.as_mut().unwrap() {
-                if !b.finished() { finished = false; }
-            }
-            if finished == true {
-                self.download_status = DownloadStatus::Finished;
-                return None;
-            }
-            else {
-                //tokio::task::yield_now().await;
-                let bucket_update = self.buckets.as_mut().unwrap()[self.current_bucket_index].bucket_progress();
-                self.current_bucket_index = (self.current_bucket_index + 1) % self.buckets.as_mut().unwrap().len();
-                return (bucket_update).into();
-            }
-
-        })
-
+    pub fn progress_stream(&self) -> BucketProgressStream {
+        let buckets = self.buckets.as_ref().unwrap();
+        return BucketProgressStream::new(&buckets);
     }
 
     pub fn bucket_sizes(&mut self) -> Vec<u64> {
@@ -117,6 +98,55 @@ impl TheClient {
     }
     
 }
+
+
+pub struct BucketProgressStream<'a> {
+    buckets: &'a [Bucket],
+    current_index: usize,
+    delay: Delay
+}
+
+impl<'a> BucketProgressStream<'a> {
+    pub fn new(buckets: &'a [Bucket]) -> Self {
+        return Self {
+            buckets: buckets,
+            current_index: 0,
+            delay: Delay::for_duration(Duration::from_millis(0))
+        };
+    }
+}
+
+impl<'a> Stream for BucketProgressStream<'a> {
+    type Item = BucketProgress;
+
+    fn poll_next(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Self::Item>> {
+
+        match Pin::new(&mut self.delay).poll(cx) {
+            Poll::Ready(_) => {
+                self.delay = Delay::for_duration(Duration::from_millis(20));
+            },
+            Poll::Pending => {
+                return Poll::Pending;
+            },
+        }
+
+        let mut finished = true;
+        for b in self.buckets {
+            if !b.finished() { finished = false; }
+        }
+        if finished == true {
+           // self.download_status = DownloadStatus::Finished;
+            return Poll::Ready(None);
+        }
+        else {
+            
+            let bucket_update = self.buckets[self.current_index].bucket_progress();
+            self.current_index = (self.current_index + 1) % self.buckets.len();
+            return Poll::Ready(bucket_update.into());
+        }
+    }
+}
+
 
 async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>, Box<dyn error::Error>> {
 
