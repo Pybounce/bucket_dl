@@ -7,6 +7,7 @@ use reqwest::{self, Client};
 use tokio::{spawn, sync::{oneshot, watch}};
 use futures_util::StreamExt;
 
+/// API to access infomation about a new or ongoing request.
 #[derive(Debug, Default)]
 pub struct DownloadClient {
     buckets: Option<Vec<Bucket>>,
@@ -15,6 +16,8 @@ pub struct DownloadClient {
 }
 
 impl DownloadClient {
+
+    /// Simplest way to create a new client.
     pub fn init(url: &String, file_path: &String) -> Result<Self, Box<dyn error::Error>> {
         return Ok(Self {
             buckets: None,
@@ -23,6 +26,8 @@ impl DownloadClient {
         });
     }
 
+    /// Begins the asynchronous, awaiting this only confirms the download has started.
+    /// To check if the download as finished, use [`Self::status`].
     pub async fn begin_download(&mut self) -> Result<(), Box<dyn error::Error>>{
         match start_download(&self.url, &self.file_path).await {
             Ok(b) => {
@@ -35,11 +40,41 @@ impl DownloadClient {
         return Ok(());
     }
 
+    /// Use this if you want progress updates during download.
+    /// The stream will break out once the download is complete OR an error occurs.
+    /// To ensure the download was successful after exausting the stream, use [`Self::status`]
+    /// 
+    /// If the download has not started, an empty stream will be returned.
+    /// 
+    /// # Example
+    /// General usage.
+    /// ```
+    /// # use multithreaded_download_manager::download_client::DownloadClient;
+    /// # use multithreaded_download_manager::bucket::BucketProgressStream;
+    /// # use futures_util::StreamExt;
+    ///
+    /// # tokio_test::block_on(async {
+    /// # let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned()).unwrap();
+    /// let mut stream = client.progress_stream();
+    /// # let mut is_empty = true;
+    /// while let Some(bucket_progress) = stream.next().await {
+    /// #   is_empty = false;
+    ///     println!("Bucket with id {}, has downloaded {} bytes!", bucket_progress.id, bucket_progress.progress);
+    /// }
+    /// # assert!(is_empty == true);
+    /// # })
+    /// ```
+
     pub fn progress_stream(&self) -> BucketProgressStream {
-        let buckets = self.buckets.as_ref().unwrap();
-        return BucketProgressStream::new(&buckets);
+        return match self.buckets.as_ref() {
+            Some(buckets) => BucketProgressStream::new(buckets),
+            None => BucketProgressStream::empty(),
+        };
     }
 
+    /// Creates a new vec to store bucket sizes.
+    /// Sizes denote the amount of bytes total for this bucket to download, not remaining.
+    /// Can be used to calculate the percentage completion of the download/bucket.
     pub fn bucket_sizes(&mut self) -> Vec<u64> {
         let mut sizes: Vec<u64> = vec![];
         let buckets = self.buckets.as_mut().unwrap();
@@ -49,6 +84,8 @@ impl DownloadClient {
         return sizes;
     }
 
+    /// Used to verify whether or not a download was successful.
+    /// Currently, this should be checked after the bucket progress stream is exausted, since it will break out if an error occurs.
     pub fn status(&self) -> DownloadStatus {
         match self.buckets.as_ref() {
             Some(buckets) => {

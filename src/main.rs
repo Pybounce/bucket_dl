@@ -29,6 +29,7 @@ fn parse_input() -> Result<(String, String), ()> {
 #[tokio::main]
 async fn main() {
     match parse_input() {
+        
         Ok((url, file_path)) => {   
             let mp = MultiProgress::new();
             let sty = ProgressStyle::with_template(

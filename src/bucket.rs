@@ -8,6 +8,7 @@ use futures_util::Stream;
 use std::pin::Pin;
 use std::fmt;
 
+/// Contains the id for the given bucket, and progress in terms of how many bytes have currently been downloaded.
 #[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug, Default)]
 pub struct BucketProgress {
     pub id: u8,
@@ -72,6 +73,13 @@ impl<'a> BucketProgressStream<'a> {
     pub fn new(buckets: &'a [Bucket]) -> Self {
         return Self {
             buckets: buckets,
+            current_index: 0,
+            delay: Delay::for_duration(Duration::from_millis(0))
+        };
+    }
+    pub fn empty() -> Self {
+        return Self {
+            buckets: &[],
             current_index: 0,
             delay: Delay::for_duration(Duration::from_millis(0))
         };
