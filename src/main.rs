@@ -1,4 +1,6 @@
 
+use std::time::Duration;
+
 use futures_util::StreamExt;
 use multithreaded_download_manager::{models::DownloadStatus, TheClient};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -39,6 +41,7 @@ async fn main() {
             if let Ok(mut client) = TheClient::init(&url, &file_path) {
                 if let Ok(_) = client.begin_download().await {
 
+                    //let _ = tokio::time::sleep(Duration::from_millis(1000)).await;
                     let bucket_sizes = client.bucket_sizes();
 
                     let mut progress_bars = Vec::<ProgressBar>::with_capacity(bucket_sizes.len());

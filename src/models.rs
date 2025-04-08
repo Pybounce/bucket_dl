@@ -1,10 +1,7 @@
 
-pub struct BucketProgress {
-    pub id: u8,
-    pub progress: u64
-}
 
-#[derive(Default, Clone, Copy)]
+
+#[derive(Default, Clone, Copy, Debug)]
 pub enum DownloadStatus {
     #[default]
     NotStarted,
