@@ -1,7 +1,7 @@
 
 
 
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug, Default)]
 pub enum DownloadStatus {
     #[default]
     NotStarted,

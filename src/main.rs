@@ -61,8 +61,7 @@ async fn main() {
                         if bucket_sizes[bucket_progress.id as usize] <= bucket_progress.progress {
                             progress_bars[bucket_progress.id as usize].finish();
                         }
-                    }
-                    let _ = mp.clear();
+                    }                    
                 }
                 let _ = tokio::time::sleep(Duration::from_millis(1000)).await;
 

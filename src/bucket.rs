@@ -6,12 +6,21 @@ use crate::delay::Delay;
 use tokio::sync::{oneshot, watch};
 use futures_util::Stream;
 use std::pin::Pin;
+use std::fmt;
 
+#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug, Default)]
 pub struct BucketProgress {
     pub id: u8,
     pub progress: u64
 }
 
+impl fmt::Display for BucketProgress {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}: {})", self.id, self.progress)
+    }
+}
+
+#[derive(Debug)]
 pub struct Bucket {
     id: u8,
     /// Current amount of bytes downloaded.
@@ -47,6 +56,7 @@ impl Bucket {
     pub fn finished(&self) -> bool {
         return self.bytes_downloaded() >= self.size;
     }
+
     pub fn size(&self) -> u64 {
         return self.size;
     }

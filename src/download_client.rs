@@ -7,7 +7,7 @@ use reqwest::{self, Client};
 use tokio::{spawn, sync::{oneshot, watch}};
 use futures_util::StreamExt;
 
-
+#[derive(Debug, Default)]
 pub struct DownloadClient {
     buckets: Option<Vec<Bucket>>,
     url: String,
