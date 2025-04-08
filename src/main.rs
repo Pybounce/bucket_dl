@@ -1,14 +1,11 @@
 
-use std::time::Duration;
-
 use futures_util::StreamExt;
-use multithreaded_download_manager::{models::DownloadStatus, TheClient};
+use multithreaded_download_manager::{download_client::DownloadClient, models::DownloadStatus};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 fn parse_input() -> Result<(String, String), ()> {
 
     return Ok(("http://speedtest.tele2.net/1GB.zip".to_owned(), "file.zip".to_owned()));
-
 
     let args: Vec<String> = std::env::args().collect();
 
@@ -38,7 +35,7 @@ async fn main() {
             .unwrap()
             .progress_chars("##-");
 
-            if let Ok(mut client) = TheClient::init(&url, &file_path) {
+            if let Ok(mut client) = DownloadClient::init(&url, &file_path) {
                 if let Ok(_) = client.begin_download().await {
 
                     //let _ = tokio::time::sleep(Duration::from_millis(1000)).await;

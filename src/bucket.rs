@@ -1,11 +1,10 @@
 
 use std::{
-    error, fs::{File, OpenOptions}, future::Future, io::{Seek, Write}, path::Path, sync::Arc, task::Poll, time::Duration
+    future::Future, task::Poll, time::Duration
 };
 use crate::delay::Delay;
-use reqwest::{self, Client};
-use tokio::{spawn, sync::{mpsc::{self, Receiver, Sender}, oneshot, watch}};
-use futures_util::{Stream, StreamExt};
+use tokio::sync::{oneshot, watch};
+use futures_util::Stream;
 use std::pin::Pin;
 
 pub struct BucketProgress {
@@ -20,7 +19,7 @@ pub struct Bucket {
     /// Total amount of bytes in download.
     size: u64, 
     /// Cancels download
-    kill_switch: oneshot::Sender<bool>
+    _kill_switch: oneshot::Sender<bool>
 
     // retry_count
     // last_updated_time
@@ -33,7 +32,7 @@ impl Bucket {
             bytes_download_watcher: 
             bytes_download_watcher, 
             size: size, 
-            kill_switch: kill_switch 
+            _kill_switch: kill_switch 
         }
     }
     
