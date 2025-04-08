@@ -12,6 +12,7 @@ use futures_util::StreamExt;
 /// ```
 /// # use multithreaded_download_manager::download_client::DownloadClient;
 /// # use multithreaded_download_manager::bucket::BucketProgressStream;
+/// # use multithreaded_download_manager::models::DownloadStatus;
 /// # use futures_util::StreamExt;
 /// # tokio_test::block_on(async {
 /// let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned());
@@ -25,13 +26,13 @@ use futures_util::StreamExt;
 /// 
 ///         // always check status to confirm successful download.
 ///         match client.status() {
-///             DownloadStatus::Finished => { // success! }
-///             _ => { // something horrible has happened. }
+///             DownloadStatus::Finished => { /* success! */ }
+///             _ => { /* something horrible has happened. */ }
 ///         }
 ///     },
-///     Err(_) => { // handle error }
+///     Err(_) => { /* handle error */ }
 /// }
-/// # }
+/// # })
 /// ```
 #[derive(Debug, Default)]
 pub struct DownloadClient {

@@ -39,6 +39,7 @@ async fn main() {
             .progress_chars("##-");
 
             let mut client = DownloadClient::init(&url, &file_path);
+
             if let Ok(_) = client.begin_download().await {
                 let bucket_sizes = client.bucket_sizes();
 
@@ -79,5 +80,10 @@ async fn main() {
             println!("Error parsing input.")
         },
     }
+
+
+
+
+    
 }
 
