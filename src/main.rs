@@ -1,5 +1,5 @@
 
-use multithreaded_download_manager::{models::Update, TheClient};
+use multithreaded_download_manager::{models::DownloadStatus, TheClient};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 fn parse_input() -> Result<(String, String), ()> {
@@ -50,37 +50,30 @@ async fn main() {
                         progress_bars.push(pb);
                     }
 
-                    loop {
-                        match client.progress().await {
-                            Update::Progress(bucket_progress) => {
-                                if progress_bars[bucket_progress.id as usize].is_finished() { continue; }
+                    for bucket_progress in client.progress().await {
+                        if progress_bars[bucket_progress.id as usize].is_finished() { continue; }
 
-                                progress_bars[bucket_progress.id as usize].set_position(bucket_progress.progress);
-                
-                                if bucket_sizes[bucket_progress.id as usize] <= bucket_progress.progress {
-                                    progress_bars[bucket_progress.id as usize].finish();
-                                }
-                            },
-                            Update::Finished => {
-                                println!("finished");
-                                break;
-                            },
-                            Update::Failed => {
-                                println!("failed");
-                                break;
-                            },
-                            Update::NotStarted => {
-                                println!("not started");
-                                break;
-                            },
+                        progress_bars[bucket_progress.id as usize].set_position(bucket_progress.progress);
+        
+                        if bucket_sizes[bucket_progress.id as usize] <= bucket_progress.progress {
+                            progress_bars[bucket_progress.id as usize].finish();
                         }
+                    }
+                    let _ = mp.clear();
+
+                    match client.status() {
+                        DownloadStatus::Finished => {
+                            let _ = progress_bars.iter().map(|b| b.finish());
+                            println!("FINISHED")
+                        },
+                        _ => println!("Status not finished")
                     }
 
                 }
 
             }
-            println!("DONE");
 
+            println!("DONE");
         },
         Err(_) => {
             println!("Error parsing input.")

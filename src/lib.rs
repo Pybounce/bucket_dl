@@ -9,7 +9,7 @@ use reqwest::{self, Client};
 use tokio::{spawn, sync::{mpsc::{self, Receiver, Sender}, oneshot, watch}};
 use futures_util::StreamExt;
 
-use models::{BucketProgress, Update};
+use models::{BucketProgress, DownloadStatus};
 
 struct Bucket {
     id: u8,
@@ -52,7 +52,8 @@ pub struct TheClient {
     buckets: Option<Vec<Bucket>>,
     url: String,
     file_path: String,
-    current_bucket_index: usize
+    current_bucket_index: usize,
+    download_status: DownloadStatus
 }
 
 impl TheClient {
@@ -61,7 +62,8 @@ impl TheClient {
             buckets: None,
             url: url.clone(),
             file_path: file_path.clone(),
-            current_bucket_index: 0
+            current_bucket_index: 0,
+            download_status: DownloadStatus::NotStarted
         });
     }
 
@@ -77,22 +79,28 @@ impl TheClient {
         return Ok(());
     }
 
-    pub async fn progress(&mut self) -> Update {
-        if self.buckets.is_none() { return Update::NotStarted; }
+    pub async fn progress(&mut self) -> impl Iterator<Item = BucketProgress> + '_ {
 
-        let mut finished = true;
-        for b in self.buckets.as_mut().unwrap() {
-            if !b.finished() { finished = false; }
-        }
-        if finished == true {
-            return Update::Finished;
-        }
-        else {
-            tokio::task::yield_now().await;
-            let bucket_update = self.buckets.as_mut().unwrap()[self.current_bucket_index].bucket_progress();
-            self.current_bucket_index = (self.current_bucket_index + 1) % self.buckets.as_mut().unwrap().len();
-            return Update::Progress(bucket_update);
-        }
+        std::iter::from_fn(move || {
+            if self.buckets.is_none() { return None; }
+
+            let mut finished = true;
+            for b in self.buckets.as_mut().unwrap() {
+                if !b.finished() { finished = false; }
+            }
+            if finished == true {
+                self.download_status = DownloadStatus::Finished;
+                return None;
+            }
+            else {
+                //tokio::task::yield_now().await;
+                let bucket_update = self.buckets.as_mut().unwrap()[self.current_bucket_index].bucket_progress();
+                self.current_bucket_index = (self.current_bucket_index + 1) % self.buckets.as_mut().unwrap().len();
+                return (bucket_update).into();
+            }
+
+        })
+
     }
 
     pub fn bucket_sizes(&mut self) -> Vec<u64> {
@@ -102,6 +110,10 @@ impl TheClient {
             sizes.push(b.size);
         }
         return sizes;
+    }
+
+    pub fn status(&self) -> DownloadStatus {
+        return self.download_status;
     }
     
 }
@@ -151,9 +163,6 @@ fn undo_all(file_path: &str) {
 
 async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize, url: String, file_path: String, sender: watch::Sender<u64>, mut kill_switch: oneshot::Receiver<bool>) -> Result<(), ()> {
     let range = format!("bytes={}-{}", start_byte, end_byte);
-    if start_byte == 0 {
-        println!("end byte {}", end_byte);
-    }
     if let Ok(response) = client.get(url).header("Range", range).send().await {
 
         let mut file = OpenOptions::new().write(true).open(Path::new(&file_path)).unwrap();

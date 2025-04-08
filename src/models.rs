@@ -4,9 +4,11 @@ pub struct BucketProgress {
     pub progress: u64
 }
 
-pub enum Update {
-    Progress(BucketProgress),
+#[derive(Default, Clone, Copy)]
+pub enum DownloadStatus {
+    #[default]
+    NotStarted,
+    InProgress,
     Finished,
     Failed,
-    NotStarted
 }
