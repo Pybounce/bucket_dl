@@ -8,6 +8,31 @@ use tokio::{spawn, sync::{oneshot, watch}};
 use futures_util::StreamExt;
 
 /// API to access infomation about a new or ongoing request.
+/// # Example
+/// ```
+/// # use multithreaded_download_manager::download_client::DownloadClient;
+/// # use multithreaded_download_manager::bucket::BucketProgressStream;
+/// # use futures_util::StreamExt;
+/// # tokio_test::block_on(async {
+/// let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned());
+/// match client.begin_download().await {
+///     Ok(_) => {
+///         let mut stream = client.progress_stream();
+
+///         while let Some(bucket_progress) = stream.next().await {
+///             // display logic here
+///         }
+/// 
+///         // always check status to confirm successful download.
+///         match client.status() {
+///             DownloadStatus::Finished => { // success! }
+///             _ => { // something horrible has happened. }
+///         }
+///     },
+///     Err(_) => { // handle error }
+/// }
+/// # }
+/// ```
 #[derive(Debug, Default)]
 pub struct DownloadClient {
     buckets: Option<Vec<Bucket>>,
@@ -18,15 +43,21 @@ pub struct DownloadClient {
 impl DownloadClient {
 
     /// Simplest way to create a new client.
-    pub fn init(url: &String, file_path: &String) -> Result<Self, Box<dyn error::Error>> {
-        return Ok(Self {
+    /// # Example
+    /// ```
+    /// # use multithreaded_download_manager::download_client::DownloadClient;
+    /// let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned());
+    /// ```
+    pub fn init(url: &String, file_path: &String) -> Self {
+        return Self {
             buckets: None,
             url: url.clone(),
             file_path: file_path.clone()
-        });
+        };
     }
 
-    /// Begins the asynchronous, awaiting this only confirms the download has started.
+    /// Begins the download, awaiting this only confirms the download has started.</br>
+    /// This could fail at many points such as making a headers request, following by spawning many threads to request the data, hence the Result return type.</br>
     /// To check if the download as finished, use [`Self::status`].
     pub async fn begin_download(&mut self) -> Result<(), Box<dyn error::Error>>{
         match start_download(&self.url, &self.file_path).await {
@@ -40,21 +71,19 @@ impl DownloadClient {
         return Ok(());
     }
 
-    /// Use this if you want progress updates during download.
-    /// The stream will break out once the download is complete OR an error occurs.
+    /// Use this if you want progress updates during download.</br>
+    /// The stream will break out once the download is complete OR an error occurs.</br>
     /// To ensure the download was successful after exausting the stream, use [`Self::status`]
-    /// 
+    /// </br></br>
     /// If the download has not started, an empty stream will be returned.
     /// 
     /// # Example
-    /// General usage.
     /// ```
     /// # use multithreaded_download_manager::download_client::DownloadClient;
     /// # use multithreaded_download_manager::bucket::BucketProgressStream;
     /// # use futures_util::StreamExt;
-    ///
     /// # tokio_test::block_on(async {
-    /// # let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned()).unwrap();
+    /// # let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned());
     /// let mut stream = client.progress_stream();
     /// # let mut is_empty = true;
     /// while let Some(bucket_progress) = stream.next().await {
@@ -64,7 +93,6 @@ impl DownloadClient {
     /// # assert!(is_empty == true);
     /// # })
     /// ```
-
     pub fn progress_stream(&self) -> BucketProgressStream {
         return match self.buckets.as_ref() {
             Some(buckets) => BucketProgressStream::new(buckets),
@@ -72,8 +100,8 @@ impl DownloadClient {
         };
     }
 
-    /// Creates a new vec to store bucket sizes.
-    /// Sizes denote the amount of bytes total for this bucket to download, not remaining.
+    /// Allocates a new vec to store bucket sizes.</br>
+    /// Sizes denote the amount of bytes total for this bucket to download, not remaining.</br>
     /// Can be used to calculate the percentage completion of the download/bucket.
     pub fn bucket_sizes(&mut self) -> Vec<u64> {
         let mut sizes: Vec<u64> = vec![];
@@ -84,7 +112,7 @@ impl DownloadClient {
         return sizes;
     }
 
-    /// Used to verify whether or not a download was successful.
+    /// Used to verify whether or not a download was successful.</br>
     /// Currently, this should be checked after the bucket progress stream is exausted, since it will break out if an error occurs.
     pub fn status(&self) -> DownloadStatus {
         match self.buckets.as_ref() {
@@ -98,8 +126,6 @@ impl DownloadClient {
         };
     } 
 }
-
-
 
 
 async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>, Box<dyn error::Error>> {
