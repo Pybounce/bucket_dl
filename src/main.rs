@@ -64,6 +64,7 @@ async fn main() {
                     }
                     let _ = mp.clear();
                 }
+                let _ = tokio::time::sleep(Duration::from_millis(1000)).await;
 
                 match client.status() {
                     DownloadStatus::Finished => {
@@ -73,7 +74,6 @@ async fn main() {
                 }
 
             }
-            let _ = tokio::time::sleep(Duration::from_millis(1000)).await;
             println!("DONE");
         },
         Err(_) => {
