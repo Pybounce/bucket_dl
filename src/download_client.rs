@@ -57,8 +57,8 @@ impl DownloadClient {
         };
     }
 
-    /// Begins the download, awaiting this only confirms the download has started.</br>
-    /// This could fail at many points such as making a headers request, following by spawning many threads to request the data, hence the Result return type.</br>
+    /// Begins the download, awaiting this only confirms the download has started.<br/>
+    /// This could fail at many points such as making a headers request, following by spawning many threads to request the data, hence the Result return type.<br/>
     /// To check if the download as finished, use [`Self::status`].
     pub async fn begin_download(&mut self) -> Result<(), Box<dyn error::Error>>{
         match start_download(&self.url, &self.file_path).await {
@@ -72,10 +72,10 @@ impl DownloadClient {
         return Ok(());
     }
 
-    /// Use this if you want progress updates during download.</br>
-    /// The stream will break out once the download is complete OR an error occurs.</br>
+    /// Use this if you want progress updates during download.<br/>
+    /// The stream will break out once the download is complete OR an error occurs.<br/>
     /// To ensure the download was successful after exausting the stream, use [`Self::status`]
-    /// </br></br>
+    /// <br/><br/>
     /// If the download has not started, an empty stream will be returned.
     /// 
     /// # Example
@@ -101,8 +101,8 @@ impl DownloadClient {
         };
     }
 
-    /// Allocates a new vec to store bucket sizes.</br>
-    /// Sizes denote the amount of bytes total for this bucket to download, not remaining.</br>
+    /// Allocates a new vec to store bucket sizes.<br/>
+    /// Sizes denote the amount of bytes total for this bucket to download, not remaining.<br/>
     /// Can be used to calculate the percentage completion of the download/bucket.
     pub fn bucket_sizes(&mut self) -> Vec<u64> {
         let mut sizes: Vec<u64> = vec![];
@@ -113,7 +113,7 @@ impl DownloadClient {
         return sizes;
     }
 
-    /// Used to verify whether or not a download was successful.</br>
+    /// Used to verify whether or not a download was successful.<br/>
     /// Currently, this should be checked after the bucket progress stream is exausted, since it will break out if an error occurs.
     pub fn status(&self) -> DownloadStatus {
         match self.buckets.as_ref() {
