@@ -54,7 +54,6 @@ pub struct TheClient {
     buckets: Option<Vec<Bucket>>,
     url: String,
     file_path: String,
-    download_status: DownloadStatus
 }
 
 impl TheClient {
@@ -62,8 +61,7 @@ impl TheClient {
         return Ok(Self {
             buckets: None,
             url: url.clone(),
-            file_path: file_path.clone(),
-            download_status: DownloadStatus::NotStarted
+            file_path: file_path.clone()
         });
     }
 
@@ -94,7 +92,15 @@ impl TheClient {
     }
 
     pub fn status(&self) -> DownloadStatus {
-        return self.download_status;
+        match self.buckets.as_ref() {
+            Some(buckets) => {
+                for bucket in buckets {
+                    if !bucket.finished() { return DownloadStatus::InProgress; }
+                }
+                return DownloadStatus::Finished;
+            },
+            None => return DownloadStatus::NotStarted,
+        };
     }
     
 }
@@ -132,10 +138,9 @@ impl<'a> Stream for BucketProgressStream<'a> {
 
         let mut finished = true;
         for b in self.buckets {
-            if !b.finished() { finished = false; }
+            if !b.finished() { finished = false; break; }
         }
         if finished == true {
-           // self.download_status = DownloadStatus::Finished;
             return Poll::Ready(None);
         }
         else {

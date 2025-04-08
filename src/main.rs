@@ -63,15 +63,13 @@ async fn main() {
                         }
                     }
                     let _ = mp.clear();
+                }
 
-                    match client.status() {
-                        DownloadStatus::Finished => {
-                            let _ = progress_bars.iter().map(|b| b.finish());
-                            println!("FINISHED")
-                        },
-                        _ => println!("Status not finished")
-                    }
-
+                match client.status() {
+                    DownloadStatus::Finished => {
+                        println!("FINISHED")
+                    },
+                    _ => println!("Status not finished")
                 }
 
             }
