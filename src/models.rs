@@ -1,12 +1,11 @@
 
-pub struct ChunkProgress {
-    pub id: u8,
-    pub progress: u64
-}
 
-pub enum Update {
-    Progress(ChunkProgress),
+
+#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug, Default)]
+pub enum DownloadStatus {
+    #[default]
+    NotStarted,
+    InProgress,
     Finished,
     Failed,
-    NotStarted
 }
