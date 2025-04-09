@@ -2,6 +2,9 @@
 
 A multithreaded download manager with the purpose of faster downloads by splitting it into several requests, rebuilding the data client-side.
 
+> [!Warning]
+> This is still a work in progress. Yes there are issues, everything is okay.
+
 ## Features
 
 - [x] When possible, splits download into 'buckets', each using a new thread and request.
