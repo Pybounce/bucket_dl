@@ -6,9 +6,6 @@ use multithreaded_download_manager::{download_client::DownloadClient, models::Do
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 fn parse_input() -> Result<(String, String), ()> {
-
-    return Ok(("http://speedtest.tele2.net/1GB.zip".to_owned(), "file.zip".to_owned()));
-
     let args: Vec<String> = std::env::args().collect();
 
     let mut url = "";
