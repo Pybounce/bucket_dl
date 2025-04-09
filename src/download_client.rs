@@ -180,7 +180,7 @@ fn get_standard_bucket_size(content_length: usize, accepts_ranges: bool) -> usiz
     return (content_length / 6) + 1;
 }
 
-fn undo_all(file_path: &str) {
+fn _undo_all(file_path: &str) {
     println!("Deleting unfinished file...");
     std::fs::remove_file(file_path).unwrap();
     println!("Deleted unfinished file.");

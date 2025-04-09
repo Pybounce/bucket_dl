@@ -1,6 +1,4 @@
 
-use std::time::Duration;
-
 use futures_util::StreamExt;
 use bucket_dl::{download_client::DownloadClient, models::DownloadStatus};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
