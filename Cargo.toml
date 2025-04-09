@@ -7,7 +7,7 @@ keywords = ["download", "download+manager", "multithreaded"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Pybounce/multithreaded_downloader"
 publish = false
-description = "A multithreaded download manager with the purpose of faster downloads by splitting the download in to several requests, rebuilding the data client-side."
+description = "A multithreaded download manager with the purpose of faster downloads by splitting it into several requests, rebuilding the data client-side."
 
 [dependencies]
 futures-util = "0.3.31"

@@ -1,14 +1,15 @@
 # The Name Here
 
-A multithreaded download manager with the purpose of faster downloads by splitting the download in to several requests, rebuilding the data client-side.
+A multithreaded download manager with the purpose of faster downloads by splitting it into several requests, rebuilding the data client-side.
 
 ## Features
 
 - [x] When possible, splits download into 'buckets', each using a new thread and request.
 - [x] Streams live download progress, ideal for visualising loading bars.
-- [ ] Retries failed buckets by creating a new thread/request, up to x times.
+- [ ] Retries failed buckets, creating a new thread/request up to x times.
 - [ ] Supports pausing and resuming downloads at any time.
 - [ ] Automatic pausing in the event of a crash.
+- [ ] Actual tests
 
 ## Usage
 
