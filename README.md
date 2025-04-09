@@ -1,5 +1,7 @@
 # bucket_dl
 
+![Tests](https://github.com/Pybounce/bucket_dl/.github/workflows/cargo_test.yml)
+
 A multithreaded downloader with the purpose of faster downloads by splitting it into several requests, rebuilding the data client-side.
 
 > [!Warning]
