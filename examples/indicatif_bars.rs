@@ -28,20 +28,20 @@ async fn main() {
     match parse_input() {
         
         Ok((url, file_path)) => {   
-            let mp = MultiProgress::new();
-            let sty = ProgressStyle::with_template(
-                "[{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})",
-            )
-            .unwrap()
-            .progress_chars("##-");
-
             let mut client = DownloadClient::init(&url, &file_path);
 
             if let Ok(_) = client.begin_download().await {
                 let bucket_sizes = client.bucket_sizes();
 
+                let mp = MultiProgress::new();
                 let mut progress_bars = Vec::<ProgressBar>::with_capacity(bucket_sizes.len());
 
+                let sty = ProgressStyle::with_template(
+                    "[{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})",
+                )
+                .unwrap()
+                .progress_chars("##-");
+    
                 for i in 0..bucket_sizes.len() {
                     let bucket_size = bucket_sizes[i];
                     let pb = mp.add(ProgressBar::new(bucket_size as u64));
@@ -60,9 +60,11 @@ async fn main() {
                     if bucket_sizes[bucket_progress.id as usize] <= bucket_progress.progress {
                         progress_bars[bucket_progress.id as usize].finish();
                     }
-                }                    
+                }  
+                for pb in progress_bars {
+                    pb.finish();
+                }                  
             }
-            let _ = tokio::time::sleep(Duration::from_millis(1000)).await;
 
             match client.status() {
                 DownloadStatus::Finished => {
@@ -70,8 +72,6 @@ async fn main() {
                 },
                 _ => println!("Status not finished")
             }
-
-            println!("DONE");
         },
         Err(_) => {
             println!("Error parsing input.")
