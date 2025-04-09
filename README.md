@@ -1,11 +1,11 @@
+> [!Warning]
+> This is still a work in progress. Yes there are issues, everything is okay.
+
 # bucket_dl
 
 ![Tests](https://github.com/Pybounce/bucket_dl/actions/workflows/cargo_test.yml/badge.svg)
 
 A multithreaded downloader with the purpose of faster downloads by splitting it into several requests, rebuilding the data client-side.
-
-> [!Warning]
-> This is still a work in progress. Yes there are issues, everything is okay.
 
 ## Features
 
