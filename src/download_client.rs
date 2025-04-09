@@ -1,6 +1,6 @@
 
 use std::{
-    error, fs::{File, OpenOptions}, io::{Seek, Write}, path::Path, sync::Arc
+    error, fs::{File, OpenOptions}, io::{ErrorKind, Seek, Write}, path::Path, sync::Arc
 };
 use crate::{bucket::{Bucket, BucketProgressStream}, models::DownloadStatus};
 use reqwest::{self, Client};
@@ -61,6 +61,10 @@ impl DownloadClient {
     /// This could fail at many points such as making a headers request, following by spawning many threads to request the data, hence the Result return type.<br/>
     /// To check if the download as finished, use [`Self::status`].
     pub async fn begin_download(&mut self) -> Result<(), Box<dyn error::Error>>{
+        if try_create_file(&self.file_path) == false {
+            let err_msg = format!("Failed to create file at path {}", self.file_path);
+            return Err(Box::new(std::io::Error::new(ErrorKind::Other, err_msg)));
+        }
         match start_download(&self.url, &self.file_path).await {
             Ok(b) => {
                 self.buckets = b.into();
@@ -139,7 +143,6 @@ async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>,
     let content_length: usize = headers.get("content-length").unwrap().to_str()?.parse::<usize>()?;
     let standard_bucket_size: usize = get_bucket_size(content_length, headers.contains_key("accept-ranges"));
 
-    let _file = File::create(file_path)?;
     let mut bucket_id: u8 = 0;
     for start_byte in (0..content_length).step_by(standard_bucket_size) {
         let end_byte = (start_byte + standard_bucket_size).min(content_length);
@@ -159,6 +162,13 @@ async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>,
     }
 
     return Ok(buckets);
+}
+
+fn try_create_file(file_path: &String) -> bool {
+    return match File::create(file_path) {
+        Ok(_) => true,
+        Err(_) => false,
+    };
 }
 
 fn get_bucket_size(content_length: usize, accepts_ranges: bool) -> usize {
