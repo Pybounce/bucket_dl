@@ -1,6 +1,6 @@
 
 use std::{
-    error, fs::{File, OpenOptions}, io::{Seek, Write}, path::Path, sync::Arc
+    error, fs::{File, OpenOptions}, io::{ErrorKind, Seek, Write}, path::Path, sync::Arc
 };
 use crate::{bucket::{Bucket, BucketProgressStream}, models::DownloadStatus};
 use reqwest::{self, Client};
@@ -10,9 +10,9 @@ use futures_util::StreamExt;
 /// API to access infomation about a new or ongoing request.
 /// # Example
 /// ```
-/// # use multithreaded_download_manager::download_client::DownloadClient;
-/// # use multithreaded_download_manager::bucket::BucketProgressStream;
-/// # use multithreaded_download_manager::models::DownloadStatus;
+/// # use bucket_dl::download_client::DownloadClient;
+/// # use bucket_dl::bucket::BucketProgressStream;
+/// # use bucket_dl::models::DownloadStatus;
 /// # use futures_util::StreamExt;
 /// # tokio_test::block_on(async {
 /// let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned());
@@ -46,7 +46,7 @@ impl DownloadClient {
     /// Simplest way to create a new client.
     /// # Example
     /// ```
-    /// # use multithreaded_download_manager::download_client::DownloadClient;
+    /// # use bucket_dl::download_client::DownloadClient;
     /// let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned());
     /// ```
     pub fn init(url: &String, file_path: &String) -> Self {
@@ -61,6 +61,10 @@ impl DownloadClient {
     /// This could fail at many points such as making a headers request, following by spawning many threads to request the data, hence the Result return type.<br/>
     /// To check if the download as finished, use [`Self::status`].
     pub async fn begin_download(&mut self) -> Result<(), Box<dyn error::Error>>{
+        if try_create_file(&self.file_path) == false {
+            let err_msg = format!("Failed to create file at path {}", self.file_path);
+            return Err(Box::new(std::io::Error::new(ErrorKind::Other, err_msg)));
+        }
         match start_download(&self.url, &self.file_path).await {
             Ok(b) => {
                 self.buckets = b.into();
@@ -74,14 +78,14 @@ impl DownloadClient {
 
     /// Use this if you want progress updates during download.<br/>
     /// The stream will break out once the download is complete OR an error occurs.<br/>
-    /// To ensure the download was successful after exausting the stream, use [`Self::status`]
+    /// To ensure the download was successful after exhausting the stream, use [`Self::status`]
     /// <br/><br/>
     /// If the download has not started, an empty stream will be returned.
     /// 
     /// # Example
     /// ```
-    /// # use multithreaded_download_manager::download_client::DownloadClient;
-    /// # use multithreaded_download_manager::bucket::BucketProgressStream;
+    /// # use bucket_dl::download_client::DownloadClient;
+    /// # use bucket_dl::bucket::BucketProgressStream;
     /// # use futures_util::StreamExt;
     /// # tokio_test::block_on(async {
     /// # let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned());
@@ -114,7 +118,7 @@ impl DownloadClient {
     }
 
     /// Used to verify whether or not a download was successful.<br/>
-    /// Currently, this should be checked after the bucket progress stream is exausted, since it will break out if an error occurs.
+    /// Currently, this should be checked after the bucket progress stream is exhausted, since it will break out if an error occurs.
     pub fn status(&self) -> DownloadStatus {
         match self.buckets.as_ref() {
             Some(buckets) => {
@@ -137,36 +141,46 @@ async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>,
     let head_response = client.head(url).send().await?;
     let headers = head_response.headers();
     let content_length: usize = headers.get("content-length").unwrap().to_str()?.parse::<usize>()?;
-    let standard_bucket_size: usize = get_bucket_size(content_length, headers.contains_key("accept-ranges"));
+    let standard_bucket_size: usize = get_standard_bucket_size(content_length, headers.contains_key("accept-ranges"));
 
-    let _file = File::create(file_path)?;
     let mut bucket_id: u8 = 0;
     for start_byte in (0..content_length).step_by(standard_bucket_size) {
-        let end_byte = (start_byte + standard_bucket_size).min(content_length);
-        let bucket_size = end_byte - start_byte;
-        let (w_tx, w_rx) = watch::channel::<u64>(0);
-        let (ks_tx, ks_rx) = oneshot::channel::<bool>();
-        
-
-        spawn(download_range(Arc::clone(&client), start_byte, end_byte - 1, url.clone(), file_path.clone(), w_tx, ks_rx));
-        buckets.push(Bucket::new(
-            bucket_id, 
-            bucket_size as u64, 
-            w_rx, 
-            ks_tx
-        ));
+        let bucket = start_bucket_download(bucket_id, start_byte, standard_bucket_size, content_length, url, file_path, &client).await;
+        buckets.push(bucket);
         bucket_id += 1;
     }
 
     return Ok(buckets);
 }
 
-fn get_bucket_size(content_length: usize, accepts_ranges: bool) -> usize {
+async fn start_bucket_download(id: u8, start_byte: usize, standard_bucket_size: usize, content_length: usize, url: &String, file_path: &String, client: &Arc<Client>) -> Bucket {
+    let end_byte = (start_byte + standard_bucket_size).min(content_length);
+    let bucket_size = end_byte - start_byte;
+    let (w_tx, w_rx) = watch::channel::<u64>(0);
+    let (ks_tx, ks_rx) = oneshot::channel::<bool>();
+
+    spawn(download_range(Arc::clone(client), start_byte, end_byte - 1, url.clone(), file_path.clone(), w_tx, ks_rx));
+    return Bucket::new(
+        id, 
+        bucket_size as u64, 
+        w_rx, 
+        ks_tx
+    );
+}
+
+fn try_create_file(file_path: &String) -> bool {
+    return match File::create(file_path) {
+        Ok(_) => true,
+        Err(_) => false,
+    };
+}
+
+fn get_standard_bucket_size(content_length: usize, accepts_ranges: bool) -> usize {
     if accepts_ranges == false { return content_length; }
     return (content_length / 6) + 1;
 }
 
-fn undo_all(file_path: &str) {
+fn _undo_all(file_path: &str) {
     println!("Deleting unfinished file...");
     std::fs::remove_file(file_path).unwrap();
     println!("Deleted unfinished file.");

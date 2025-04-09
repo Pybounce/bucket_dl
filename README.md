@@ -1,41 +1,40 @@
-Theory Crafting
+> [!Warning]
+> This is still a work in progress. Yes there are issues, everything is okay.
 
-- [ ] github readme
-- [ ] Stop unwrapping
-  - It will cause a panic
-- [ ] Saving progress mid crash
-  - Not something I'll likely do for a while if ever
-  - Will need another file that keeps track of progress and gets deleted after
-- [ ] Handling threaded errors and retries
-  - Right now, once the download has started, there is no communication between the threads downloading the chunks, nor is there a manager for them
-  - So if one fails, none of the others will know, and will just continue downloading
-  - Also they don't retry if something fails - which they COULD handle on their own, however, if something goes so bad that the thread cannot restart itself, there may be need for a manager/orchestrator of the download to handle this.
-- look into publishing
+# bucket_dl
 
-  - what are dev deps
-  - optional deps for examples
-  - examples
-  - is tokio a dev dep?
-  - read up on publishing and the crate being found etc
-  - probably remove main.rs but make an example with indicatif
+![Tests](https://github.com/Pybounce/bucket_dl/actions/workflows/cargo_test.yml/badge.svg)
 
-- ERROR HANDLING
+A multithreaded downloader with the purpose of faster downloads by splitting it into several requests, rebuilding the data client-side.
 
----
+## Features
 
-Better architecture
+- [x] When possible, splits download into 'buckets', each using a new thread and request.
+- [x] Streams live download progress, ideal for visualising loading bars.
+- [ ] Retries failed buckets, creating a new thread/request up to x times.
+- [ ] Supports pausing and resuming downloads at any time.
+- [ ] Automatic pausing in the event of a crash.
+- [ ] Actual tests
 
-- Have a DownloadManager object
-- It has an Init constructor that returns some download data
-  - Download data contains chunk sizes/count
-- It has another public endpoint for beginning the download
-- The download manager starts all the threaded downloads and manages them
-  - So if one errors it can retry etc
-- The download manager will then have a 1-1 channel for the end user, to tell them if it's ongoing or finished or errored etc
+## Usage
 
----
+> [!Note]
+> For more detailed usage, look at the examples/ directory.
 
-Enhancements
+```rust
+  let mut client = DownloadClient::init(&url, &file_path);
 
-- [ ] Chunk sizes can be (size, last_size, count)
-  - Can still iter through each individual size from api
+  if let Ok(_) = client.begin_download().await {
+    let mut stream = client.progress_stream();
+    while let Some(bucket_progress) = stream.next().await {...}
+
+    match client.status() {
+      DownloadStatus::Finished => {...},
+      _ => {...}
+    }
+
+  }
+```
+
+> [!Warning]
+> Always remember to check the status of the download, even after exhausting the progress updates.
