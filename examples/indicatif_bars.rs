@@ -2,7 +2,7 @@
 use std::time::Duration;
 
 use futures_util::StreamExt;
-use multithreaded_download_manager::{download_client::DownloadClient, models::DownloadStatus};
+use bucket_dl::{download_client::DownloadClient, models::DownloadStatus};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 fn parse_input() -> Result<(String, String), ()> {

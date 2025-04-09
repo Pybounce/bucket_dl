@@ -1,5 +1,5 @@
 [package]
-name = "multithreaded_download_manager"
+name = "bucket_dl"
 version = "0.1.0"
 edition = "2024"
 categories = ["web-programming::http-client", "filesystem", "asynchronous"]
@@ -7,7 +7,7 @@ keywords = ["download", "download+manager", "multithreaded"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Pybounce/multithreaded_downloader"
 publish = false
-description = "A multithreaded download manager with the purpose of faster downloads by splitting it into several requests, rebuilding the data client-side."
+description = "A multithreaded downloader with the purpose of faster downloads by splitting it into several requests, rebuilding the data client-side."
 
 [dependencies]
 futures-util = "0.3.31"

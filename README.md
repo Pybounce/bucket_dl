@@ -1,6 +1,6 @@
-# The Name Here
+# bucket_dl
 
-A multithreaded download manager with the purpose of faster downloads by splitting it into several requests, rebuilding the data client-side.
+A multithreaded downloader with the purpose of faster downloads by splitting it into several requests, rebuilding the data client-side.
 
 > [!Warning]
 > This is still a work in progress. Yes there are issues, everything is okay.

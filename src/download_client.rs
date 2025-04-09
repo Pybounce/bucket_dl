@@ -10,9 +10,9 @@ use futures_util::StreamExt;
 /// API to access infomation about a new or ongoing request.
 /// # Example
 /// ```
-/// # use multithreaded_download_manager::download_client::DownloadClient;
-/// # use multithreaded_download_manager::bucket::BucketProgressStream;
-/// # use multithreaded_download_manager::models::DownloadStatus;
+/// # use bucket_dl::download_client::DownloadClient;
+/// # use bucket_dl::bucket::BucketProgressStream;
+/// # use bucket_dl::models::DownloadStatus;
 /// # use futures_util::StreamExt;
 /// # tokio_test::block_on(async {
 /// let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned());
@@ -46,7 +46,7 @@ impl DownloadClient {
     /// Simplest way to create a new client.
     /// # Example
     /// ```
-    /// # use multithreaded_download_manager::download_client::DownloadClient;
+    /// # use bucket_dl::download_client::DownloadClient;
     /// let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned());
     /// ```
     pub fn init(url: &String, file_path: &String) -> Self {
@@ -80,8 +80,8 @@ impl DownloadClient {
     /// 
     /// # Example
     /// ```
-    /// # use multithreaded_download_manager::download_client::DownloadClient;
-    /// # use multithreaded_download_manager::bucket::BucketProgressStream;
+    /// # use bucket_dl::download_client::DownloadClient;
+    /// # use bucket_dl::bucket::BucketProgressStream;
     /// # use futures_util::StreamExt;
     /// # tokio_test::block_on(async {
     /// # let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned());
