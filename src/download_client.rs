@@ -74,7 +74,7 @@ impl DownloadClient {
 
     /// Use this if you want progress updates during download.<br/>
     /// The stream will break out once the download is complete OR an error occurs.<br/>
-    /// To ensure the download was successful after exausting the stream, use [`Self::status`]
+    /// To ensure the download was successful after exhausting the stream, use [`Self::status`]
     /// <br/><br/>
     /// If the download has not started, an empty stream will be returned.
     /// 
@@ -114,7 +114,7 @@ impl DownloadClient {
     }
 
     /// Used to verify whether or not a download was successful.<br/>
-    /// Currently, this should be checked after the bucket progress stream is exausted, since it will break out if an error occurs.
+    /// Currently, this should be checked after the bucket progress stream is exhausted, since it will break out if an error occurs.
     pub fn status(&self) -> DownloadStatus {
         match self.buckets.as_ref() {
             Some(buckets) => {
