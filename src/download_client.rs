@@ -141,27 +141,31 @@ async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>,
     let head_response = client.head(url).send().await?;
     let headers = head_response.headers();
     let content_length: usize = headers.get("content-length").unwrap().to_str()?.parse::<usize>()?;
-    let standard_bucket_size: usize = get_bucket_size(content_length, headers.contains_key("accept-ranges"));
+    let standard_bucket_size: usize = get_standard_bucket_size(content_length, headers.contains_key("accept-ranges"));
 
     let mut bucket_id: u8 = 0;
     for start_byte in (0..content_length).step_by(standard_bucket_size) {
-        let end_byte = (start_byte + standard_bucket_size).min(content_length);
-        let bucket_size = end_byte - start_byte;
-        let (w_tx, w_rx) = watch::channel::<u64>(0);
-        let (ks_tx, ks_rx) = oneshot::channel::<bool>();
-        
-
-        spawn(download_range(Arc::clone(&client), start_byte, end_byte - 1, url.clone(), file_path.clone(), w_tx, ks_rx));
-        buckets.push(Bucket::new(
-            bucket_id, 
-            bucket_size as u64, 
-            w_rx, 
-            ks_tx
-        ));
+        let bucket = start_bucket_download(bucket_id, start_byte, standard_bucket_size, content_length, url, file_path, &client).await;
+        buckets.push(bucket);
         bucket_id += 1;
     }
 
     return Ok(buckets);
+}
+
+async fn start_bucket_download(id: u8, start_byte: usize, standard_bucket_size: usize, content_length: usize, url: &String, file_path: &String, client: &Arc<Client>) -> Bucket {
+    let end_byte = (start_byte + standard_bucket_size).min(content_length);
+    let bucket_size = end_byte - start_byte;
+    let (w_tx, w_rx) = watch::channel::<u64>(0);
+    let (ks_tx, ks_rx) = oneshot::channel::<bool>();
+
+    spawn(download_range(Arc::clone(client), start_byte, end_byte - 1, url.clone(), file_path.clone(), w_tx, ks_rx));
+    return Bucket::new(
+        id, 
+        bucket_size as u64, 
+        w_rx, 
+        ks_tx
+    );
 }
 
 fn try_create_file(file_path: &String) -> bool {
@@ -171,7 +175,7 @@ fn try_create_file(file_path: &String) -> bool {
     };
 }
 
-fn get_bucket_size(content_length: usize, accepts_ranges: bool) -> usize {
+fn get_standard_bucket_size(content_length: usize, accepts_ranges: bool) -> usize {
     if accepts_ranges == false { return content_length; }
     return (content_length / 6) + 1;
 }
