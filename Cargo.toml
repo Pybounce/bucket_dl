@@ -1,17 +1,18 @@
 [package]
 name = "multithreaded_download_manager"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 categories = ["web-programming::http-client", "filesystem", "asynchronous"]
 keywords = ["download", "download+manager", "multithreaded"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Pybounce/multithreaded_downloader"
 publish = false
+description = "A multithreaded download manager with the purpose of faster downloads by splitting the download in to several requests, rebuilding the data client-side."
 
 [dependencies]
 futures-util = "0.3.31"
 indicatif = "0.17.11"
-reqwest = {version = "0.12.12", features = ["stream"] }
+reqwest = { version = "0.12.12", features = ["stream"] }
 tokio = { version = "1", features = ["full"] }
 
 [dev-dependencies]
