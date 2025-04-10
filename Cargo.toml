@@ -1,6 +1,6 @@
 [package]
 name = "bucket_dl"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 categories = ["web-programming::http-client", "filesystem", "asynchronous"]
 keywords = ["download", "download+manager", "multithreaded"]
