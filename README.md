@@ -4,6 +4,7 @@
 # bucket_dl
 
 ![Tests](https://github.com/Pybounce/bucket_dl/actions/workflows/cargo_test.yml/badge.svg)
+[![Latest version](https://img.shields.io/crates/v/bucket_dl.svg)](https://crates.io/crates/bucket_dl)
 
 A multithreaded downloader with the purpose of faster downloads by splitting it into several requests, rebuilding the data client-side.
 
