@@ -93,7 +93,7 @@ impl DownloadClient {
     /// # let mut is_empty = true;
     /// while let Some(bucket_progress) = stream.next().await {
     /// #   is_empty = false;
-    ///     println!("Bucket with id {}, has downloaded {} bytes!", bucket_progress.id, bucket_progress.progress);
+    ///     println!("Bucket with id {}, has downloaded {} bytes!", bucket_progress.id, bucket_progress.byte_progress);
     /// }
     /// # assert!(is_empty == true);
     /// # })
