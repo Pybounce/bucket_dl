@@ -53,9 +53,9 @@ async fn main() {
                 while let Some(bucket_progress) = bucket_prog_stream.next().await {
                     if progress_bars[bucket_progress.id as usize].is_finished() { continue; }   // should not be indexing based on id since we have no knowledge on hows it's generated
 
-                    progress_bars[bucket_progress.id as usize].set_position(bucket_progress.progress);
+                    progress_bars[bucket_progress.id as usize].set_position(bucket_progress.byte_progress);
     
-                    if bucket_sizes[bucket_progress.id as usize] <= bucket_progress.progress {
+                    if bucket_sizes[bucket_progress.id as usize] <= bucket_progress.byte_progress {
                         progress_bars[bucket_progress.id as usize].finish();
                     }
                 }  

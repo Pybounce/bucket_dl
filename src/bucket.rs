@@ -9,15 +9,16 @@ use std::pin::Pin;
 use std::fmt;
 
 /// Contains the id for the given bucket, and progress in terms of how many bytes have currently been downloaded.
-#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct BucketProgress {
     pub id: u8,
-    pub progress: u64
+    pub byte_progress: u64,
+    pub percent_progress: f32
 }
 
 impl fmt::Display for BucketProgress {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}: {})", self.id, self.progress)
+        write!(f, "(id: {}: downloaded {} bytes, {}%)", self.id, self.byte_progress, self.percent_progress)
     }
 }
 
@@ -51,7 +52,7 @@ impl Bucket {
     }
 
     pub fn bucket_progress(&self) -> BucketProgress {
-        return BucketProgress { id: self.id, progress: self.bytes_downloaded() };
+        return BucketProgress { id: self.id, byte_progress: self.bytes_downloaded(), percent_progress: self.bytes_downloaded() as f32 / self.size() as f32 };
     }
 
     pub fn finished(&self) -> bool {
