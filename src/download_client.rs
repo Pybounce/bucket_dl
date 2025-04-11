@@ -1,8 +1,8 @@
 
 use std::{
-    error, fs::{File, OpenOptions}, io::{ErrorKind, Seek, Write}, path::Path, sync::Arc
+    error, fs::{File, OpenOptions}, io::{ErrorKind, Seek, Write}, iter, path::Path, sync::Arc
 };
-use crate::{bucket::{Bucket, BucketProgressStream}, models::DownloadStatus};
+use crate::{bucket::{Bucket, BucketProgress, BucketProgressStream}, models::DownloadStatus};
 use reqwest::{self, Client};
 use tokio::{spawn, sync::{oneshot, watch}};
 use futures_util::StreamExt;
@@ -103,6 +103,13 @@ impl DownloadClient {
             Some(buckets) => BucketProgressStream::new(buckets),
             None => BucketProgressStream::empty(),
         };
+    }
+
+    /// Returns an iterator of the current progress of the buckets. <br/>
+    /// Contrast to [`Self::progress_stream`], this will break as soon as it has sent the progress of each bucket, regardless of if they have finished downloading. <br/>
+    /// It is here to serve as a synchonous way to get the current progress. <br/>
+    pub fn current_progress(&self) -> impl Iterator<Item = BucketProgress> {
+        return self.buckets.as_ref().into_iter().flat_map(|buckets| buckets.iter().map(|b| b.bucket_progress()));
     }
 
     /// Allocates a new vec to store bucket sizes.<br/>
