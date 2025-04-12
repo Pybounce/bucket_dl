@@ -1,0 +1,4 @@
+
+- Have a background task check errors.
+    - Right now if an error occurs, nothing is cancelled.
+    - It's only when the user calls .status() does it check, and then cancel if it's errored
