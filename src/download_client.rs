@@ -1,6 +1,6 @@
 
 use std::{
-    error, fs::{File, OpenOptions}, io::{ErrorKind, Seek, Write}, iter, path::Path, sync::Arc
+    error, fs::{File, OpenOptions}, io::{Seek, Write}, path::Path, sync::Arc
 };
 use crate::{bucket::{Bucket, BucketProgress, BucketProgressStream}, models::DownloadStatus};
 use reqwest::{self, Client};
