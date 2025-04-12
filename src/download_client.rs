@@ -136,9 +136,13 @@ impl DownloadClient {
 
     /// Used to verify whether or not a download was successful.<br/>
     /// Currently, this should be checked after the bucket progress stream is exhausted, since it will break out if an error occurs.
-    pub fn status(&self) -> DownloadStatus {
-        if let Some(msg) = &self.error_msg {
-            return DownloadStatus::Failed(msg.clone());
+    pub fn status(&mut self) -> DownloadStatus {
+
+        if self.error_msg.is_some() {
+            if self.cancelled == false {
+                self.cancel();
+            }
+            return DownloadStatus::Failed(self.error_msg.as_ref().unwrap().clone());
         }
         if self.cancelled {
             return DownloadStatus::Cancelled;
