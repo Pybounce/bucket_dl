@@ -8,4 +8,5 @@ pub enum DownloadStatus {
     InProgress,
     Finished,
     Failed(String),
+    Cancelled
 }

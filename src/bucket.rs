@@ -30,7 +30,7 @@ pub struct Bucket {
     /// Total amount of bytes in download.
     size: u64, 
     /// Cancels download
-    _kill_switch: oneshot::Sender<bool>
+    kill_switch: Option<oneshot::Sender<bool>>
 
     // retry_count
     // last_updated_time
@@ -43,7 +43,7 @@ impl Bucket {
             bytes_download_watcher: 
             bytes_download_watcher, 
             size: size, 
-            _kill_switch: kill_switch 
+            kill_switch: Some(kill_switch) 
         }
     }
     
@@ -62,6 +62,13 @@ impl Bucket {
     pub fn size(&self) -> u64 {
         return self.size;
     }
+
+    pub fn cancel(&mut self) {
+        if let Some(switch) = self.kill_switch.take() {
+            let _ = switch.send(true);
+        }
+    }
+
 }
 
 pub struct BucketProgressStream<'a> {

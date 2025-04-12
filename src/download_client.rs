@@ -39,7 +39,8 @@ pub struct DownloadClient {
     buckets: Option<Vec<Bucket>>,
     url: String,
     file_path: String,
-    error_msg: Option<String>
+    error_msg: Option<String>,
+    cancelled: bool
 }
 
 impl DownloadClient {
@@ -55,7 +56,8 @@ impl DownloadClient {
             buckets: None,
             url: url.clone(),
             file_path: file_path.clone(),
-            error_msg: None
+            error_msg: None,
+            cancelled: false
         };
     }
 
@@ -138,6 +140,9 @@ impl DownloadClient {
         if let Some(msg) = &self.error_msg {
             return DownloadStatus::Failed(msg.clone());
         }
+        if self.cancelled {
+            return DownloadStatus::Cancelled;
+        }
         match self.buckets.as_ref() {
             Some(buckets) => {
                 for bucket in buckets {
@@ -148,8 +153,26 @@ impl DownloadClient {
             None => return DownloadStatus::NotStarted,
         };
     }
+
+    pub fn cancel(&mut self) {
+        if let Some(buckets) = self.buckets.as_mut() {
+            for bucket in buckets {
+                bucket.cancel();
+            }
+            self.delete_unfinished_file();
+        }
+        self.cancelled = true;
+    }
+
 }
 
+impl DownloadClient {
+    fn delete_unfinished_file(&self) {
+        println!("Deleting unfinished file...");
+        std::fs::remove_file(self.file_path.clone()).unwrap();
+        println!("Deleted unfinished file.");
+    }
+}
 
 async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>, Box<dyn error::Error>> {
 
@@ -198,11 +221,7 @@ fn get_standard_bucket_size(content_length: usize, accepts_ranges: bool) -> usiz
     return (content_length / 6) + 1;
 }
 
-fn _undo_all(file_path: &str) {
-    println!("Deleting unfinished file...");
-    std::fs::remove_file(file_path).unwrap();
-    println!("Deleted unfinished file.");
-}
+
 
 async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize, url: String, file_path: String, sender: watch::Sender<u64>, mut kill_switch: oneshot::Receiver<bool>) -> Result<(), ()> {
     let range = format!("bytes={}-{}", start_byte, end_byte);
