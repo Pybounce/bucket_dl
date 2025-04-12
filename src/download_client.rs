@@ -39,6 +39,7 @@ pub struct DownloadClient {
     buckets: Option<Vec<Bucket>>,
     url: String,
     file_path: String,
+    error_msg: Option<String>
 }
 
 impl DownloadClient {
@@ -53,27 +54,34 @@ impl DownloadClient {
         return Self {
             buckets: None,
             url: url.clone(),
-            file_path: file_path.clone()
+            file_path: file_path.clone(),
+            error_msg: None
         };
     }
 
     /// Begins the download, awaiting this only confirms the download has started.<br/>
     /// This could fail at many points such as making a headers request, following by spawning many threads to request the data, hence the Result return type.<br/>
     /// To check if the download as finished, use [`Self::status`].
-    pub async fn begin_download(&mut self) -> Result<(), Box<dyn error::Error>>{
+    pub async fn begin_download(&mut self) -> Result<(), ()>{
         if try_create_file(&self.file_path) == false {
             let err_msg = format!("Failed to create file at path {}", self.file_path);
-            return Err(Box::new(std::io::Error::new(ErrorKind::Other, err_msg)));
+            self.error_msg = err_msg.into();
+            return Err(());
         }
         match start_download(&self.url, &self.file_path).await {
             Ok(b) => {
                 self.buckets = b.into();
             },
             Err(e) => {
-                println!("AHHHHHHHHH")  ;
-                return Err(e); },
+                let err_msg = format!("Failed to start download. {}", e);
+                self.error_msg = err_msg.into();
+                return Err(());
+            },
         }
-        return Ok(());
+        return match self.status() {
+            DownloadStatus::Failed(_) => Err(()),
+            _ => Ok(())
+        };
     }
 
     /// Use this if you want progress updates during download.<br/>
@@ -127,6 +135,9 @@ impl DownloadClient {
     /// Used to verify whether or not a download was successful.<br/>
     /// Currently, this should be checked after the bucket progress stream is exhausted, since it will break out if an error occurs.
     pub fn status(&self) -> DownloadStatus {
+        if let Some(msg) = &self.error_msg {
+            return DownloadStatus::Failed(msg.clone());
+        }
         match self.buckets.as_ref() {
             Some(buckets) => {
                 for bucket in buckets {
@@ -136,7 +147,7 @@ impl DownloadClient {
             },
             None => return DownloadStatus::NotStarted,
         };
-    } 
+    }
 }
 
 
