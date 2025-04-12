@@ -1,11 +1,12 @@
 
 
 
-#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug, Default)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash, Debug, Default)]
 pub enum DownloadStatus {
     #[default]
     NotStarted,
     InProgress,
     Finished,
-    Failed,
+    Failed(String),
+    Cancelled
 }

@@ -1,6 +1,6 @@
 
 use std::{
-    error, fs::{File, OpenOptions}, io::{ErrorKind, Seek, Write}, iter, path::Path, sync::Arc
+    error, fs::{File, OpenOptions}, io::{Seek, Write}, path::Path, sync::Arc
 };
 use crate::{bucket::{Bucket, BucketProgress, BucketProgressStream}, models::DownloadStatus};
 use reqwest::{self, Client};
@@ -39,6 +39,8 @@ pub struct DownloadClient {
     buckets: Option<Vec<Bucket>>,
     url: String,
     file_path: String,
+    error_msg: Option<String>,
+    cancelled: bool
 }
 
 impl DownloadClient {
@@ -53,27 +55,35 @@ impl DownloadClient {
         return Self {
             buckets: None,
             url: url.clone(),
-            file_path: file_path.clone()
+            file_path: file_path.clone(),
+            error_msg: None,
+            cancelled: false
         };
     }
 
     /// Begins the download, awaiting this only confirms the download has started.<br/>
     /// This could fail at many points such as making a headers request, following by spawning many threads to request the data, hence the Result return type.<br/>
     /// To check if the download as finished, use [`Self::status`].
-    pub async fn begin_download(&mut self) -> Result<(), Box<dyn error::Error>>{
+    pub async fn begin_download(&mut self) -> Result<(), ()>{
         if try_create_file(&self.file_path) == false {
             let err_msg = format!("Failed to create file at path {}", self.file_path);
-            return Err(Box::new(std::io::Error::new(ErrorKind::Other, err_msg)));
+            self.error_msg = err_msg.into();
+            return Err(());
         }
         match start_download(&self.url, &self.file_path).await {
             Ok(b) => {
                 self.buckets = b.into();
             },
             Err(e) => {
-                println!("AHHHHHHHHH")  ;
-                return Err(e); },
+                let err_msg = format!("Failed to start download. {}", e);
+                self.error_msg = err_msg.into();
+                return Err(());
+            },
         }
-        return Ok(());
+        return match self.status() {
+            DownloadStatus::Failed(_) => Err(()),
+            _ => Ok(())
+        };
     }
 
     /// Use this if you want progress updates during download.<br/>
@@ -126,7 +136,17 @@ impl DownloadClient {
 
     /// Used to verify whether or not a download was successful.<br/>
     /// Currently, this should be checked after the bucket progress stream is exhausted, since it will break out if an error occurs.
-    pub fn status(&self) -> DownloadStatus {
+    pub fn status(&mut self) -> DownloadStatus {
+
+        if self.error_msg.is_some() {
+            if self.cancelled == false {
+                self.cancel();
+            }
+            return DownloadStatus::Failed(self.error_msg.as_ref().unwrap().clone());
+        }
+        if self.cancelled {
+            return DownloadStatus::Cancelled;
+        }
         match self.buckets.as_ref() {
             Some(buckets) => {
                 for bucket in buckets {
@@ -136,9 +156,27 @@ impl DownloadClient {
             },
             None => return DownloadStatus::NotStarted,
         };
-    } 
+    }
+
+    pub fn cancel(&mut self) {
+        if let Some(buckets) = self.buckets.as_mut() {
+            for bucket in buckets {
+                bucket.cancel();
+            }
+            self.delete_unfinished_file();
+        }
+        self.cancelled = true;
+    }
+
 }
 
+impl DownloadClient {
+    fn delete_unfinished_file(&self) {
+        println!("Deleting unfinished file...");
+        std::fs::remove_file(self.file_path.clone()).unwrap();
+        println!("Deleted unfinished file.");
+    }
+}
 
 async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>, Box<dyn error::Error>> {
 
@@ -187,11 +225,7 @@ fn get_standard_bucket_size(content_length: usize, accepts_ranges: bool) -> usiz
     return (content_length / 6) + 1;
 }
 
-fn _undo_all(file_path: &str) {
-    println!("Deleting unfinished file...");
-    std::fs::remove_file(file_path).unwrap();
-    println!("Deleted unfinished file.");
-}
+
 
 async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize, url: String, file_path: String, sender: watch::Sender<u64>, mut kill_switch: oneshot::Receiver<bool>) -> Result<(), ()> {
     let range = format!("bytes={}-{}", start_byte, end_byte);
