@@ -1,6 +1,6 @@
 
 use std::{
-    error, fs::{File, OpenOptions}, io::{Seek, Write}, path::Path, sync::Arc
+    error, fs::{File, OpenOptions}, io::{Seek, Write}, path::{Path, PathBuf}, sync::Arc
 };
 use crate::{bucket::{Bucket, BucketProgress, BucketProgressStream}, models::DownloadStatus};
 use reqwest::{self, Client, header};
@@ -186,26 +186,23 @@ async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>,
     let head_response = client.head(url).send().await?;
     let headers = head_response.headers();
 
-    match headers.get(header::CONTENT_DISPOSITION) {
-        Some(cd) => {
-            match cd.to_str() {
-                Ok(disposition_str) => {
-                    println!("Found Content-Disposition: {}", disposition_str);
-                }
-                Err(_) => {
-                    println!("Content-Disposition found, but contains invalid UTF-8 data.");
-                }
-            }
-        },
-        None => println!("could not find content disposition header."),
-    }
+    let final_url = head_response.url();
+    let mut file_name = final_url
+        .path_segments()
+        .and_then(|segments| segments.last())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("download.dat")
+        .to_string();
+    if !file_name.contains('.') { file_name = format!("{}.dat", file_name); }
+    let directory = dirs::download_dir().unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    let full_file_path = directory.join(file_name);
 
     let content_length: usize = headers.get(header::CONTENT_LENGTH).unwrap().to_str()?.parse::<usize>()?;
     let standard_bucket_size: usize = get_standard_bucket_size(content_length, headers.contains_key(header::ACCEPT_RANGES));
 
     let mut bucket_id: u8 = 0;
     for start_byte in (0..content_length).step_by(standard_bucket_size) {
-        let bucket = start_bucket_download(bucket_id, start_byte, standard_bucket_size, content_length, url, file_path, &client).await;
+        let bucket = start_bucket_download(bucket_id, start_byte, standard_bucket_size, content_length, url, &full_file_path, &client).await;
         buckets.push(bucket);
         bucket_id += 1;
     }
@@ -213,7 +210,7 @@ async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>,
     return Ok(buckets);
 }
 
-async fn start_bucket_download(id: u8, start_byte: usize, standard_bucket_size: usize, content_length: usize, url: &String, file_path: &String, client: &Arc<Client>) -> Bucket {
+async fn start_bucket_download(id: u8, start_byte: usize, standard_bucket_size: usize, content_length: usize, url: &String, file_path: &PathBuf, client: &Arc<Client>) -> Bucket {
     let end_byte = (start_byte + standard_bucket_size).min(content_length);
     let bucket_size = end_byte - start_byte;
     let (w_tx, w_rx) = watch::channel::<u64>(0);
@@ -242,11 +239,11 @@ fn get_standard_bucket_size(content_length: usize, accepts_ranges: bool) -> usiz
 
 
 
-async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize, url: String, file_path: String, sender: watch::Sender<u64>, mut kill_switch: oneshot::Receiver<bool>) -> Result<(), ()> {
+async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize, url: String, file_path: PathBuf, sender: watch::Sender<u64>, mut kill_switch: oneshot::Receiver<bool>) -> Result<(), ()> {
     let range = format!("bytes={}-{}", start_byte, end_byte);
     if let Ok(response) = client.get(url).header("Range", range).send().await {
 
-        let mut file = OpenOptions::new().write(true).open(Path::new(&file_path)).unwrap();
+        let mut file = OpenOptions::new().write(true).open(&file_path).unwrap();
         let _ = file.seek(std::io::SeekFrom::Start(start_byte as u64)).unwrap();
 
         let mut stream = response.bytes_stream();

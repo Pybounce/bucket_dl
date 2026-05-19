@@ -1,6 +1,6 @@
 [package]
 name = "bucket_dl"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 categories = ["web-programming::http-client", "filesystem", "asynchronous"]
 keywords = ["download", "download+manager", "multithreaded"]
@@ -10,6 +10,7 @@ publish = true
 description = "A multithreaded downloader with the purpose of faster downloads by splitting it into several requests, rebuilding the data client-side."
 
 [dependencies]
+dirs = "6.0.0"
 futures-util = "0.3.31"
 reqwest = { version = "0.12.12", features = ["stream"] }
 tokio = { version = "1", features = ["full"] }
