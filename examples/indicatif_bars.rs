@@ -3,21 +3,17 @@ use futures_util::StreamExt;
 use bucket_dl::{download_client::DownloadClient, models::DownloadStatus};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
-fn parse_input() -> Result<(String, String), ()> {
+fn parse_input() -> Result<String, ()> {
     let args: Vec<String> = std::env::args().collect();
 
     let mut url = "";
-    let mut out = "";
     for i in 0..(args.len() - 1) {
         if args[i] == "-url" {
             url = &args[i + 1];
         }
-        if args[i] == "-out" {
-            out = &args[i + 1];
-        }
     }
-    if url == "" || out =="" { return Err(()); }
-    return Ok((url.to_owned(), out.to_owned()));
+    if url == "" { return Err(()); }
+    return Ok(url.to_owned());
 
 }
 
@@ -25,8 +21,8 @@ fn parse_input() -> Result<(String, String), ()> {
 async fn main() {
     match parse_input() {
         
-        Ok((url, file_path)) => {   
-            let mut client = DownloadClient::init(&url, &file_path);
+        Ok(url) => {   
+            let mut client = DownloadClient::init(&url);
 
             if let Ok(_) = client.begin_download().await {
                 let bucket_sizes = client.bucket_sizes();
