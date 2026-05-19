@@ -15,7 +15,7 @@ use futures_util::StreamExt;
 /// # use bucket_dl::models::DownloadStatus;
 /// # use futures_util::StreamExt;
 /// # tokio_test::block_on(async {
-/// let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned());
+/// let mut client = DownloadClient::init(&"".to_owned());
 /// match client.begin_download().await {
 ///     Ok(_) => {
 ///         let mut stream = client.progress_stream();
@@ -38,7 +38,7 @@ use futures_util::StreamExt;
 pub struct DownloadClient {
     buckets: Option<Vec<Bucket>>,
     url: String,
-    file_path: String,
+    file_path: PathBuf,
     error_msg: Option<String>,
     cancelled: bool
 }
@@ -49,13 +49,13 @@ impl DownloadClient {
     /// # Example
     /// ```
     /// # use bucket_dl::download_client::DownloadClient;
-    /// let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned());
+    /// let mut client = DownloadClient::init(&"".to_owned());
     /// ```
-    pub fn init(url: &String, file_path: &String) -> Self {
+    pub fn init(url: &String) -> Self {
         return Self {
             buckets: None,
             url: url.clone(),
-            file_path: file_path.clone(),
+            file_path: PathBuf::default(),
             error_msg: None,
             cancelled: false
         };
@@ -64,9 +64,19 @@ impl DownloadClient {
     /// Begins the download, awaiting this only confirms the download has started.<br/>
     /// This could fail at many points such as making a headers request, following by spawning many threads to request the data, hence the Result return type.<br/>
     /// To check if the download as finished, use [`Self::status`].
-    pub async fn begin_download(&mut self) -> Result<(), ()>{
+    pub async fn begin_download(&mut self) -> Result<(), ()> {
+        
+        if let Ok(file_path) = self.generate_file_path().await {
+            self.file_path = file_path;
+        }
+        else {
+            let err_msg = format!("Failed to generate file path");
+            self.error_msg = err_msg.into();
+            return Err(());
+        }
+
         if try_create_file(&self.file_path) == false {
-            let err_msg = format!("Failed to create file at path {}", self.file_path);
+            let err_msg = format!("Failed to create file at path {:?}", self.file_path.to_str().to_owned());
             self.error_msg = err_msg.into();
             return Err(());
         }
@@ -98,7 +108,7 @@ impl DownloadClient {
     /// # use bucket_dl::bucket::BucketProgressStream;
     /// # use futures_util::StreamExt;
     /// # tokio_test::block_on(async {
-    /// # let mut client = DownloadClient::init(&"".to_owned(), &"".to_owned());
+    /// # let mut client = DownloadClient::init(&"".to_owned());
     /// let mut stream = client.progress_stream();
     /// # let mut is_empty = true;
     /// while let Some(bucket_progress) = stream.next().await {
@@ -176,9 +186,26 @@ impl DownloadClient {
         let _ = std::fs::remove_file(self.file_path.clone());
         println!("Deleted unfinished file.");
     }
+
+    async fn generate_file_path(&self) -> Result<PathBuf, Box<dyn error::Error>> {
+        let client = Client::new();
+        let head_response = client.head(&self.url).send().await?;
+
+        let final_url = head_response.url();
+        let mut file_name = final_url
+            .path_segments()
+            .and_then(|segments| segments.last())
+            .filter(|s| !s.is_empty())
+            .unwrap_or("download.dat")
+            .to_string();
+        if !file_name.contains('.') { file_name = format!("{}.dat", file_name); }
+        let directory = dirs::download_dir().unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+        let full_file_path = directory.join(file_name);
+        return Ok(full_file_path);
+    }
 }
 
-async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>, Box<dyn error::Error>> {
+async fn start_download(url: &String, file_path: &PathBuf) -> Result<Vec<Bucket>, Box<dyn error::Error>> {
 
     let mut buckets: Vec<Bucket> = vec![];
 
@@ -186,23 +213,12 @@ async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>,
     let head_response = client.head(url).send().await?;
     let headers = head_response.headers();
 
-    let final_url = head_response.url();
-    let mut file_name = final_url
-        .path_segments()
-        .and_then(|segments| segments.last())
-        .filter(|s| !s.is_empty())
-        .unwrap_or("download.dat")
-        .to_string();
-    if !file_name.contains('.') { file_name = format!("{}.dat", file_name); }
-    let directory = dirs::download_dir().unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-    let full_file_path = directory.join(file_name);
-
     let content_length: usize = headers.get(header::CONTENT_LENGTH).unwrap().to_str()?.parse::<usize>()?;
     let standard_bucket_size: usize = get_standard_bucket_size(content_length, headers.contains_key(header::ACCEPT_RANGES));
 
     let mut bucket_id: u8 = 0;
     for start_byte in (0..content_length).step_by(standard_bucket_size) {
-        let bucket = start_bucket_download(bucket_id, start_byte, standard_bucket_size, content_length, url, &full_file_path, &client).await;
+        let bucket = start_bucket_download(bucket_id, start_byte, standard_bucket_size, content_length, url, &file_path, &client).await;
         buckets.push(bucket);
         bucket_id += 1;
     }
@@ -225,7 +241,7 @@ async fn start_bucket_download(id: u8, start_byte: usize, standard_bucket_size: 
     );
 }
 
-fn try_create_file(file_path: &String) -> bool {
+fn try_create_file(file_path: &PathBuf) -> bool {
     return match File::create(file_path) {
         Ok(_) => true,
         Err(_) => false,
