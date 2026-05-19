@@ -3,7 +3,7 @@ use std::{
     error, fs::{File, OpenOptions}, io::{Seek, Write}, path::Path, sync::Arc
 };
 use crate::{bucket::{Bucket, BucketProgress, BucketProgressStream}, models::DownloadStatus};
-use reqwest::{self, Client};
+use reqwest::{self, Client, header};
 use tokio::{spawn, sync::{oneshot, watch}};
 use futures_util::StreamExt;
 
@@ -173,7 +173,7 @@ impl DownloadClient {
 impl DownloadClient {
     fn delete_unfinished_file(&self) {
         println!("Deleting unfinished file...");
-        std::fs::remove_file(self.file_path.clone()).unwrap();
+        let _ = std::fs::remove_file(self.file_path.clone());
         println!("Deleted unfinished file.");
     }
 }
@@ -185,8 +185,23 @@ async fn start_download(url: &String, file_path: &String) -> Result<Vec<Bucket>,
     let client = Arc::new(Client::new());
     let head_response = client.head(url).send().await?;
     let headers = head_response.headers();
-    let content_length: usize = headers.get("content-length").unwrap().to_str()?.parse::<usize>()?;
-    let standard_bucket_size: usize = get_standard_bucket_size(content_length, headers.contains_key("accept-ranges"));
+
+    match headers.get(header::CONTENT_DISPOSITION) {
+        Some(cd) => {
+            match cd.to_str() {
+                Ok(disposition_str) => {
+                    println!("Found Content-Disposition: {}", disposition_str);
+                }
+                Err(_) => {
+                    println!("Content-Disposition found, but contains invalid UTF-8 data.");
+                }
+            }
+        },
+        None => println!("could not find content disposition header."),
+    }
+
+    let content_length: usize = headers.get(header::CONTENT_LENGTH).unwrap().to_str()?.parse::<usize>()?;
+    let standard_bucket_size: usize = get_standard_bucket_size(content_length, headers.contains_key(header::ACCEPT_RANGES));
 
     let mut bucket_id: u8 = 0;
     for start_byte in (0..content_length).step_by(standard_bucket_size) {
