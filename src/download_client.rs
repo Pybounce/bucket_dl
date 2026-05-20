@@ -1,6 +1,6 @@
 
 use std::{
-    error, fs::{File, OpenOptions}, io::{Seek, Write}, path::{Path, PathBuf}, sync::Arc
+    error, fs::{File, OpenOptions}, hash::{BuildHasher, Hasher, RandomState}, io::{Seek, Write}, path::{Path, PathBuf}, sync::Arc
 };
 use crate::{bucket::{Bucket, BucketProgress, BucketProgressStream}, models::DownloadStatus};
 use reqwest::{self, Client, header};
@@ -36,6 +36,7 @@ use futures_util::StreamExt;
 /// ```
 #[derive(Debug, Default)]
 pub struct DownloadClient {
+    id: u64,
     buckets: Option<Vec<Bucket>>,
     url: String,
     file_path: PathBuf,
@@ -52,7 +53,9 @@ impl DownloadClient {
     /// let mut client = DownloadClient::init(&"".to_owned());
     /// ```
     pub fn init(url: &String) -> Self {
+        let client_id = RandomState::new().build_hasher().finish();
         return Self {
+            id: client_id,
             buckets: None,
             url: url.clone(),
             file_path: PathBuf::default(),
@@ -162,6 +165,7 @@ impl DownloadClient {
                 for bucket in buckets {
                     if !bucket.finished() { return DownloadStatus::InProgress; }
                 }
+                self.finalise();
                 return DownloadStatus::Finished;
             },
             None => return DownloadStatus::NotStarted,
@@ -187,6 +191,23 @@ impl DownloadClient {
         println!("Deleted unfinished file.");
     }
 
+    fn finalise(&self) {
+        let prefix_to_remove = format!("{}_", self.id);
+
+        if let Some(file_name_os) = self.file_path.file_name() {
+            if let Some(file_name_str) = file_name_os.to_str() {
+                if let Some(restored_name) = file_name_str.strip_prefix(&prefix_to_remove) {
+                    let new_path = self.file_path.with_file_name(restored_name);
+                    if let Err(e) = std::fs::rename(&self.file_path, &new_path) {
+                        eprintln!("Failed to rename file: {}", e);
+                    } else {
+                        println!("File renamed to: {:?}", new_path);
+                    }
+                }
+            }
+        }
+    }
+
     async fn generate_file_path(&self) -> Result<PathBuf, Box<dyn error::Error>> {
         let client = Client::new();
         let head_response = client.head(&self.url).send().await?;
@@ -199,6 +220,7 @@ impl DownloadClient {
             .unwrap_or("download.dat")
             .to_string();
         if !file_name.contains('.') { file_name = format!("{}.dat", file_name); }
+        file_name = format!("{}_{}", self.id, file_name);
         let directory = dirs::download_dir().unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
         let full_file_path = directory.join(file_name);
         return Ok(full_file_path);
