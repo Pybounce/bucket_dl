@@ -41,7 +41,8 @@ pub struct DownloadClient {
     url: String,
     file_path: PathBuf,
     error_msg: Option<String>,
-    cancelled: bool
+    cancelled: bool,
+    finished: bool
 }
 
 impl DownloadClient {
@@ -60,7 +61,8 @@ impl DownloadClient {
             url: url.clone(),
             file_path: PathBuf::default(),
             error_msg: None,
-            cancelled: false
+            cancelled: false,
+            finished: false
         };
     }
 
@@ -165,7 +167,8 @@ impl DownloadClient {
                 for bucket in buckets {
                     if !bucket.finished() { return DownloadStatus::InProgress; }
                 }
-                self.finalise();
+                if !self.finished { self.finalise(); }
+                self.finished = true;
                 return DownloadStatus::Finished;
             },
             None => return DownloadStatus::NotStarted,
