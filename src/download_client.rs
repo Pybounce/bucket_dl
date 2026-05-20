@@ -4,7 +4,7 @@ use std::{
 };
 use crate::{bucket::{Bucket, BucketProgress, BucketProgressStream}, models::DownloadStatus};
 use reqwest::{self, Client, header};
-use tokio::{spawn, sync::{oneshot, watch}};
+use tokio::{spawn, sync::{oneshot::{self, error::TryRecvError}, watch}};
 use futures_util::StreamExt;
 
 /// API to access infomation about a new or ongoing request.
@@ -121,8 +121,8 @@ impl DownloadClient {
     /// # assert!(is_empty == true);
     /// # })
     /// ```
-    pub fn progress_stream(&self) -> BucketProgressStream {
-        return match self.buckets.as_ref() {
+    pub fn progress_stream(&'_ mut self) -> BucketProgressStream<'_> {
+        return match self.buckets.as_mut() {
             Some(buckets) => BucketProgressStream::new(buckets),
             None => BucketProgressStream::empty(),
         };
@@ -160,7 +160,7 @@ impl DownloadClient {
         if self.cancelled {
             return DownloadStatus::Cancelled;
         }
-        match self.buckets.as_ref() {
+        match self.buckets.as_mut() {
             Some(buckets) => {
                 for bucket in buckets {
                     if !bucket.finished() { return DownloadStatus::InProgress; }
@@ -253,13 +253,15 @@ async fn start_bucket_download(id: u8, start_byte: usize, standard_bucket_size: 
     let bucket_size = end_byte - start_byte;
     let (w_tx, w_rx) = watch::channel::<u64>(0);
     let (ks_tx, ks_rx) = oneshot::channel::<bool>();
+    let (status_tx, status_rx) = oneshot::channel::<Result<(), String>>();
 
-    spawn(download_range(Arc::clone(client), start_byte, end_byte - 1, url.clone(), file_path.clone(), w_tx, ks_rx));
+    spawn(download_range(Arc::clone(client), start_byte, end_byte - 1, url.clone(), file_path.clone(), w_tx, ks_rx, status_tx));
     return Bucket::new(
         id, 
         bucket_size as u64, 
         w_rx, 
-        ks_tx
+        ks_tx,
+        status_rx
     );
 }
 
@@ -277,7 +279,17 @@ fn get_standard_bucket_size(content_length: usize, accepts_ranges: bool) -> usiz
 
 
 
-async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize, url: String, file_path: PathBuf, sender: watch::Sender<u64>, mut kill_switch: oneshot::Receiver<bool>) -> Result<(), ()> {
+async fn download_range(
+    client: Arc<Client>, 
+    start_byte: usize, 
+    end_byte: usize, 
+    url: String, 
+    file_path: PathBuf, 
+    sender: watch::Sender<u64>, 
+    mut kill_switch: oneshot::Receiver<bool>, 
+    status_sender: oneshot::Sender<Result<(), String>>
+) -> Result<(), ()> {
+
     let range = format!("bytes={}-{}", start_byte, end_byte);
     if let Ok(response) = client.get(url).header("Range", range).send().await {
 
@@ -287,11 +299,22 @@ async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize,
         let mut stream = response.bytes_stream();
         let mut download_offset = 0;
 
+        let mut error_opt: Result<(), String> = Ok(());
+
         while let Some(item) = stream.next().await {
 
-            if let Ok(kill) = kill_switch.try_recv() {
-                if kill { break; }
-            }
+            match kill_switch.try_recv() {
+                Ok(_) => {
+                    error_opt = Err("Bucket killswitch activated.".to_owned());
+                    break;
+                },
+                Err(err) => {
+                    if err == oneshot::error::TryRecvError::Closed {
+                        error_opt = Err("Bucket killswitch tx dropped before rx".to_owned().into());
+                        break;
+                    }
+                },
+            };
 
             let bytes = item.unwrap();
 
@@ -306,8 +329,11 @@ async fn download_range(client: Arc<Client>, start_byte: usize, end_byte: usize,
             }
         }
 
-        file.flush().unwrap();
+        if let Err(err) = file.flush() {
+            error_opt = Err(format!("Failed to flush file. {}", err).to_owned().into());
+        }
 
+        let _ = status_sender.send(error_opt);
         return Ok(());
     }
     
