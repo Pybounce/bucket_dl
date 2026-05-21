@@ -103,10 +103,6 @@ impl Bucket {
     }
 
     pub fn bucket_progress(&mut self) -> BucketProgress {
-                println!("downloaded {}", self.bytes_downloaded() as f32);
-                println!("size {}", self.size() as f32);
-                println!("per {}", self.bytes_downloaded() as f32 / self.size() as f32);
-
         return BucketProgress { id: self.id, byte_progress: self.bytes_downloaded(), percent_progress: self.bytes_downloaded() as f32 / self.size() as f32 };
     }
 
