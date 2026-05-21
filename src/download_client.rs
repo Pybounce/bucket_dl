@@ -252,8 +252,8 @@ async fn start_download(url: &String, file_path: &PathBuf) -> Result<Vec<Bucket>
 }
 
 async fn start_bucket_download(id: u8, start_byte: usize, standard_bucket_size: usize, content_length: usize, url: &String, file_path: &PathBuf, client: &Client) -> Bucket {
-    let byte_length = (standard_bucket_size).min(content_length);
-
+    let end_byte = (start_byte + standard_bucket_size).min(content_length);
+    let byte_length = end_byte - start_byte;
     let mut bucket = Bucket::new(id, url.clone(), file_path.clone(), client.clone(), byte_length as u64, start_byte as u64);
     bucket.start_download();
     return bucket;
