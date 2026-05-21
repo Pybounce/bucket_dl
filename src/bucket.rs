@@ -92,7 +92,7 @@ impl Bucket {
             status_rx,
         }.into();
 
-        spawn(download_range(self.client.clone(), self.bytes_downloaded as usize, (self.byte_start + self.byte_length - 1) as usize, self.url.clone(), self.file_path.clone(), w_tx, ks_rx, status_tx));
+        spawn(download_range(self.client.clone(), self.bytes_downloaded, (self.byte_start + self.bytes_downloaded) as usize, (self.byte_start + self.byte_length - 1) as usize, self.url.clone(), self.file_path.clone(), w_tx, ks_rx, status_tx));
     }
 
     pub fn bytes_downloaded(&mut self) -> u64 {
@@ -103,6 +103,10 @@ impl Bucket {
     }
 
     pub fn bucket_progress(&mut self) -> BucketProgress {
+                println!("downloaded {}", self.bytes_downloaded() as f32);
+                println!("size {}", self.size() as f32);
+                println!("per {}", self.bytes_downloaded() as f32 / self.size() as f32);
+
         return BucketProgress { id: self.id, byte_progress: self.bytes_downloaded(), percent_progress: self.bytes_downloaded() as f32 / self.size() as f32 };
     }
 
@@ -210,7 +214,8 @@ impl<'a> Stream for BucketProgressStream<'a> {
 
 
 async fn download_range(
-    client: Client, 
+    client: Client,
+    previously_downloaded_bytes: u64,
     start_byte: usize, 
     end_byte: usize, 
     url: String, 
@@ -254,7 +259,7 @@ async fn download_range(
         }
 
         let mut stream = response.bytes_stream();
-        let mut download_offset = 0;
+        let mut download_offset = previously_downloaded_bytes;
 
 
         while let Some(item) = stream.next().await {

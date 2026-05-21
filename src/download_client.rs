@@ -243,7 +243,7 @@ async fn start_download(url: &String, file_path: &PathBuf) -> Result<Vec<Bucket>
 
     let mut bucket_id: u8 = 0;
     for start_byte in (0..content_length).step_by(standard_bucket_size) {
-        let bucket = start_bucket_download(bucket_id, start_byte, standard_bucket_size, content_length, url, &file_path, &client).await;
+        let bucket = start_bucket_download(bucket_id, start_byte, standard_bucket_size, content_length, url, &file_path, &client);
         buckets.push(bucket);
         bucket_id += 1;
     }
@@ -251,7 +251,7 @@ async fn start_download(url: &String, file_path: &PathBuf) -> Result<Vec<Bucket>
     return Ok(buckets);
 }
 
-async fn start_bucket_download(id: u8, start_byte: usize, standard_bucket_size: usize, content_length: usize, url: &String, file_path: &PathBuf, client: &Client) -> Bucket {
+fn start_bucket_download(id: u8, start_byte: usize, standard_bucket_size: usize, content_length: usize, url: &String, file_path: &PathBuf, client: &Client) -> Bucket {
     let end_byte = (start_byte + standard_bucket_size).min(content_length);
     let byte_length = end_byte - start_byte;
     let mut bucket = Bucket::new(id, url.clone(), file_path.clone(), client.clone(), byte_length as u64, start_byte as u64);
