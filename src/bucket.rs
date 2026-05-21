@@ -32,9 +32,17 @@ pub struct Bucket {
     /// Cancels download
     kill_switch: Option<oneshot::Sender<bool>>,
     status_rx: oneshot::Receiver<Result<(), String>>,
-    status_opt: Option<Result<(), String>>
+    status: BucketStatus
     // retry_count
     // last_updated_time
+}
+
+#[derive(Debug)]
+pub enum BucketStatus {
+    Idle,
+    Downloading,
+    Finished,
+    Err(String)
 }
 
 impl Bucket {
@@ -46,7 +54,7 @@ impl Bucket {
             size: size, 
             kill_switch: Some(kill_switch),
             status_rx,
-            status_opt: None
+            status: BucketStatus::Idle
         }
     }
     
@@ -59,21 +67,27 @@ impl Bucket {
     }
 
     pub fn finished(&mut self) -> bool {
-        if self.status_opt.is_some() { return true; }
-        match self.status_rx.try_recv() {
-            Ok(_) => {
-                self.status_opt = Some(Ok(()));
-                return true;
-            },
-            Err(recv_err) => {
-                match recv_err {
-                    oneshot::error::TryRecvError::Empty => return false,
-                    oneshot::error::TryRecvError::Closed => {
-                        self.status_opt = Some(Err("Bucket status tx closed before sending.".to_owned()));
-                        return true;
+        return match self.status {
+            BucketStatus::Idle => false,
+            BucketStatus::Downloading => {
+                match self.status_rx.try_recv() {
+                    Ok(_) => {
+                        self.status = BucketStatus::Finished;
+                        true
                     },
-                };
+                    Err(recv_err) => {
+                        match recv_err {
+                            oneshot::error::TryRecvError::Empty => false,
+                            oneshot::error::TryRecvError::Closed => {
+                                self.status = BucketStatus::Err("Bucket status tx closed before sending.".to_owned());
+                                true
+                            },
+                        }
+                    },
+                }
             },
+            BucketStatus::Finished => true,
+            BucketStatus::Err(_) => true,
         };
     }
 
