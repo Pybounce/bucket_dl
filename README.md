@@ -13,10 +13,6 @@ A multithreaded downloader with the purpose of faster downloads by splitting it 
 - [x] When possible, splits download into 'buckets', each using a new thread and request.
 - [x] Streams live download progress, ideal for visualising loading bars.
 - [x] Cancellation of downloads
-- [ ] Retries failed buckets, creating a new thread/request up to x times.
-- [ ] Supports pausing and resuming downloads at any time.
-- [ ] Automatic pausing in the event of a crash.
-- [ ] Actual tests
 
 ## Usage
 
@@ -24,7 +20,7 @@ A multithreaded downloader with the purpose of faster downloads by splitting it 
 > For more detailed usage, look at the examples/ directory.
 
 ```rust
-  let mut client = DownloadClient::init(&url, &file_path);
+  let mut client = DownloadClient::init(&url);
 
   if let Ok(_) = client.begin_download().await {
     let mut stream = client.progress_stream();

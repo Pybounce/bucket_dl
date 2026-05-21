@@ -63,6 +63,7 @@ impl Bucket {
         match self.status_rx.try_recv() {
             Ok(_) => {
                 self.status_opt = Some(Ok(()));
+                return true;
             },
             Err(recv_err) => {
                 match recv_err {
@@ -74,7 +75,6 @@ impl Bucket {
                 };
             },
         };
-        return false;
     }
 
     pub fn size(&self) -> u64 {
