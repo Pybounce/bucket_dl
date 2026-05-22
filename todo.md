@@ -19,17 +19,9 @@
 
 ## Next Up
 
-- [ ] Status
-  - Follow the same pattern I used in the frontend
-  - Save the last status
-  - Work out what the current status is
-  - Used changed detection to trigger things like finalisation or cancel etc.
-    - Maybe cancel shouldn't be triggered here but you get it.
-- [ ] Pausing/Unpausing
-  - Move channels to a Option<BucketHandler>
-  - Make sure a bucket has everything it needs to start/stop a download
-  - Not sure about passing in url and out or having it in there
+- [ ] Single bar downloads
+- [ ] Dynamic bars
 
 ## Issues
 
-- [ ] Cancelling when paused keeps the status as paused, instead of cancelled.
+- [ ] None
