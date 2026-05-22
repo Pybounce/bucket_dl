@@ -42,7 +42,8 @@ pub struct DownloadClient {
     file_path: PathBuf,
     error_msg: Option<String>,
     cancelled: bool,
-    finished: bool
+    finished: bool,
+    paused: bool
 }
 
 impl DownloadClient {
@@ -62,7 +63,8 @@ impl DownloadClient {
             file_path: PathBuf::default(),
             error_msg: None,
             cancelled: false,
-            finished: false
+            finished: false,
+            paused: false
         };
     }
 
@@ -152,7 +154,7 @@ impl DownloadClient {
     /// Used to verify whether or not a download was successful.<br/>
     /// Currently, this should be checked after the bucket progress stream is exhausted, since it will break out if an error occurs.
     pub fn status(&mut self) -> DownloadStatus {
-
+        if self.paused { return DownloadStatus::Paused; }
         if self.error_msg.is_some() {
             if self.cancelled == false {
                 self.cancel();
@@ -190,6 +192,7 @@ impl DownloadClient {
             for bucket in buckets {
                 bucket.pause();
             }
+            self.paused = true;
         }
     }
 
@@ -199,6 +202,7 @@ impl DownloadClient {
                 bucket.start_download();
             }
         }
+        self.paused = false;
     }
 
 }
