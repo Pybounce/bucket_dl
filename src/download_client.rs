@@ -185,6 +185,22 @@ impl DownloadClient {
         self.cancelled = true;
     }
 
+    pub fn pause(&mut self) {
+        if let Some(buckets) = self.buckets.as_mut() {
+            for bucket in buckets {
+                bucket.pause();
+            }
+        }
+    }
+
+    pub fn unpause(&mut self) {
+        if let Some(buckets) = self.buckets.as_mut() {
+            for bucket in buckets {
+                bucket.start_download();
+            }
+        }
+    }
+
 }
 
 impl DownloadClient {

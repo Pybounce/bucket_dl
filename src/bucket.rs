@@ -75,8 +75,7 @@ impl Bucket {
         }
     }
     
-    pub fn start_download(&mut self) 
-    {
+    pub fn start_download(&mut self) {
         if self.status == BucketStatus::Finished { return; }
 
         self.status = BucketStatus::Downloading;
@@ -93,6 +92,14 @@ impl Bucket {
         }.into();
 
         spawn(download_range(self.client.clone(), self.bytes_downloaded, (self.byte_start + self.bytes_downloaded) as usize, (self.byte_start + self.byte_length - 1) as usize, self.url.clone(), self.file_path.clone(), w_tx, ks_rx, status_tx));
+    }
+
+    pub fn pause(&mut self) {
+        if self.status != BucketStatus::Downloading { return; }
+
+        self.status = BucketStatus::Idle;
+        self.cancel();
+        self.download_handler_opt = None;
     }
 
     pub fn bytes_downloaded(&mut self) -> u64 {
