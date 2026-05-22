@@ -291,6 +291,7 @@ fn try_create_file(file_path: &PathBuf) -> bool {
 }
 
 fn get_standard_bucket_size(content_length: usize, accepts_ranges: bool) -> usize {
+    return content_length;
     if accepts_ranges == false { return content_length; }
     return (content_length / 6) + 1;
 }
