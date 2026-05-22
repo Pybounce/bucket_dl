@@ -229,7 +229,7 @@ async fn download_range(
 ) -> Result<(), ()> {
 
     let range = format!("bytes={}-{}", start_byte, end_byte);
-    if let Ok(response) = client.get(url).send().await {//.header("Range", range).send().await {
+    if let Ok(response) = client.get(url).header("Range", range).send().await {
 
         let mut error_opt: Result<(), String> = Ok(());
 
