@@ -29,3 +29,7 @@
   - Move channels to a Option<BucketHandler>
   - Make sure a bucket has everything it needs to start/stop a download
   - Not sure about passing in url and out or having it in there
+
+## Issues
+
+- [ ] Cancelling when paused keeps the status as paused, instead of cancelled.

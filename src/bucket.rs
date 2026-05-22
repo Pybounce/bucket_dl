@@ -81,7 +81,7 @@ impl Bucket {
         self.status = BucketStatus::Downloading;
         if self.download_handler_opt.is_some() { return; }
 
-        let (w_tx, w_rx) = watch::channel::<u64>(0);
+        let (w_tx, w_rx) = watch::channel::<u64>(self.bytes_downloaded);
         let (ks_tx, ks_rx) = oneshot::channel::<bool>();
         let (status_tx, status_rx) = oneshot::channel::<Result<(), String>>();
 
