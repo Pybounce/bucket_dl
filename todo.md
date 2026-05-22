@@ -24,3 +24,7 @@
 
 - [ ] Can pause single bar downloads
   - Do they even work?!
+- [ ] Failed download doesn't delete tempfile
+  - If the fail happens between creating it, but before starting the download.
+  - Maybe should not return an error from that start_download function
+  - Instead just set the download status to Failed.
