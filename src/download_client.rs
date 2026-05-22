@@ -72,15 +72,14 @@ impl DownloadClient {
     /// This could fail at many points such as making a headers request, following by spawning many threads to request the data, hence the Result return type.<br/>
     /// To check if the download as finished, use [`Self::status`].
     pub async fn begin_download(&mut self) -> Result<(), ()> {
-        
-        if let Ok(file_path) = self.generate_file_path().await {
-            self.file_path = file_path;
-        }
-        else {
-            let err_msg = format!("Failed to generate file path");
-            self.error_msg = err_msg.into();
-            return Err(());
-        }
+        match self.generate_file_path().await {
+            Ok(file_path) => self.file_path = file_path,
+            Err(err) => {
+                let err_msg = format!("Failed to generate file path. {}", err);
+                self.error_msg = err_msg.into();
+                return Err(());
+            },
+        };
 
         if try_create_file(&self.file_path) == false {
             let err_msg = format!("Failed to create file at path {:?}", self.file_path.to_str().to_owned());
