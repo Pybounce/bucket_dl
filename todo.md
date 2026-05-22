@@ -4,9 +4,7 @@
 - [x] Streams live download progress, ideal for visualising loading bars.
 - [x] Cancellation of downloads
 - [ ] Single thread downloads
-- [ ] Retries failed buckets, creating a new thread/request up to x times.
-- [ ] Supports pausing and resuming downloads at any time.
-- [ ] Automatic pausing in the event of a crash.
+- [x] Supports pausing and resuming downloads at any time.
 - [ ] Actual tests
 - [ ] Logging to terminal
 
