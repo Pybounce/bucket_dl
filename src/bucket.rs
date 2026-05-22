@@ -6,7 +6,7 @@ use std::{
     future::Future, task::Poll, time::Duration
 };
 use crate::delay::Delay;
-use reqwest::Client;
+use reqwest::{Client, header};
 use tokio::spawn;
 use tokio::sync::{oneshot, watch};
 use futures_util::{Stream, StreamExt};
@@ -229,7 +229,9 @@ async fn download_range(
 ) -> Result<(), ()> {
 
     let range = format!("bytes={}-{}", start_byte, end_byte);
-    if let Ok(response) = client.get(url).header("Range", range).send().await {
+    if let Ok(response) = client.get(url).header(header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    .header(header::ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+    .header(header::REFERER, "https://usercdn.com/").header("Range", range).send().await {
 
         let mut error_opt: Result<(), String> = Ok(());
 
