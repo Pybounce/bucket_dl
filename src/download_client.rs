@@ -1,11 +1,9 @@
 
 use std::{
-    error, fs::{File, OpenOptions}, hash::{BuildHasher, Hasher, RandomState}, io::{Seek, Write}, path::{Path, PathBuf}, sync::Arc
+    error, fs::File, hash::{BuildHasher, Hasher, RandomState}, path::PathBuf
 };
 use crate::{bucket::{Bucket, BucketProgress, BucketProgressStream}, models::DownloadStatus};
 use reqwest::{self, Client, header};
-use tokio::{spawn, sync::{oneshot::{self, error::TryRecvError}, watch}};
-use futures_util::StreamExt;
 
 /// API to access infomation about a new or ongoing request.
 /// # Example
@@ -175,7 +173,8 @@ impl DownloadClient {
             None => return DownloadStatus::NotStarted,
         };
     }
-
+    /// Cancels any ongoing download. <br/>
+    /// Safe to call even when there are no downloads.
     pub fn cancel(&mut self) {
         if let Some(buckets) = self.buckets.as_mut() {
             for bucket in buckets {
@@ -186,6 +185,7 @@ impl DownloadClient {
         self.cancelled = true;
     }
 
+    /// Pauses the ongoing download (if possible).
     pub fn pause(&mut self) {
         if let Some(buckets) = self.buckets.as_mut() {
             for bucket in buckets {
@@ -194,7 +194,8 @@ impl DownloadClient {
             self.paused = true;
         }
     }
-
+    
+    /// Resumes paused download.
     pub fn unpause(&mut self) {
         if let Some(buckets) = self.buckets.as_mut() {
             for bucket in buckets {
