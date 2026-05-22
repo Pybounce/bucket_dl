@@ -22,4 +22,5 @@
 
 ## Issues
 
-- [ ] None
+- [ ] Can pause single bar downloads
+  - Do they even work?!
