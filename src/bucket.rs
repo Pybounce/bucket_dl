@@ -229,79 +229,86 @@ async fn download_range(
 ) -> Result<(), ()> {
 
     let range = format!("bytes={}-{}", start_byte, end_byte);
-    if let Ok(response) = client.get(url).header(header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    match client.get(url).header(header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     .header(header::ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
     .header(header::REFERER, "https://usercdn.com/").header("Range", range).send().await {
+        Ok(response) => {
 
-        let mut error_opt: Result<(), String> = Ok(());
-
-        match kill_switch.try_recv() {
-            Ok(_) => {
-                error_opt = Err("Bucket killswitch activated.".to_owned());
-            },
-            Err(err) => {
-                if err == oneshot::error::TryRecvError::Closed {
-                    error_opt = Err("Bucket killswitch tx dropped before rx".to_owned().into());
-                }
-            },
-        };
-
-        if let Err(error) = error_opt {
-            let _ = status_sender.send(Err(error));
-            return Ok(());
-        }
-
-        let mut file = match OpenOptions::new().write(true).open(&file_path) {
-            Ok(file) => file,
-            Err(err) => {
-                let _ = status_sender.send(Err(format!("Failed to open file. {}", err)));
-                return Ok(());
-            }
-        };
-        if let Err(err) = file.seek(std::io::SeekFrom::Start(start_byte as u64)) {
-            let _ = status_sender.send(Err(format!("Failed to seek in file. {}", err)));
-            return Ok(());
-        }
-
-        let mut stream = response.bytes_stream();
-        let mut download_offset = previously_downloaded_bytes;
-
-
-        while let Some(item) = stream.next().await {
+            let mut error_opt: Result<(), String> = Ok(());
 
             match kill_switch.try_recv() {
                 Ok(_) => {
                     error_opt = Err("Bucket killswitch activated.".to_owned());
-                    break;
                 },
                 Err(err) => {
                     if err == oneshot::error::TryRecvError::Closed {
                         error_opt = Err("Bucket killswitch tx dropped before rx".to_owned().into());
-                        break;
                     }
                 },
             };
 
-            let bytes = item.unwrap();
-
-            let _ = file.write(&bytes).unwrap();
-
-            download_offset += bytes.len() as u64;
-            match sender.send(download_offset) {
-                Ok(_) => (),
-                Err(e) => {
-                    println!("error {:?}", e.0);
-                },
+            if let Err(error) = error_opt {
+                let _ = status_sender.send(Err(error));
+                return Ok(());
             }
-        }
 
-        if let Err(err) = file.flush() {
-            error_opt = Err(format!("Failed to flush file. {}", err).to_owned().into());
-        }
+            let mut file = match OpenOptions::new().write(true).open(&file_path) {
+                Ok(file) => file,
+                Err(err) => {
+                    let _ = status_sender.send(Err(format!("Failed to open file. {}", err)));
+                    return Ok(());
+                }
+            };
+            if let Err(err) = file.seek(std::io::SeekFrom::Start(start_byte as u64)) {
+                let _ = status_sender.send(Err(format!("Failed to seek in file. {}", err)));
+                return Ok(());
+            }
 
-        let _ = status_sender.send(error_opt);
-        return Ok(());
-    }
+            let mut stream = response.bytes_stream();
+            let mut download_offset = previously_downloaded_bytes;
+
+
+            while let Some(item) = stream.next().await {
+
+                match kill_switch.try_recv() {
+                    Ok(_) => {
+                        error_opt = Err("Bucket killswitch activated.".to_owned());
+                        break;
+                    },
+                    Err(err) => {
+                        if err == oneshot::error::TryRecvError::Closed {
+                            error_opt = Err("Bucket killswitch tx dropped before rx".to_owned().into());
+                            break;
+                        }
+                    },
+                };
+
+                let bytes = item.unwrap();
+
+                let _ = file.write(&bytes).unwrap();
+
+                download_offset += bytes.len() as u64;
+                match sender.send(download_offset) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        println!("error {:?}", e.0);
+                    },
+                }
+            }
+
+            if let Err(err) = file.flush() {
+                error_opt = Err(format!("Failed to flush file. {}", err).to_owned().into());
+            }
+
+            let _ = status_sender.send(error_opt);
+            return Ok(());
+        },
+        Err(err) => {
+            println!("Failed to begin download. {:?}", err);
+            return Err(());
+        },
+    };
+
     
     return Err(());
 }
