@@ -233,7 +233,9 @@ impl DownloadClient {
 
     async fn generate_file_path(&self) -> Result<PathBuf, Box<dyn error::Error>> {
         let client = Client::new();
-        let head_response = client.head(&self.url).send().await?;
+        let head_response = client.head(&self.url).header(header::USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    .header(header::ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+    .header(header::REFERER, "https://usercdn.com/").send().await?;
 
         let final_url = head_response.url();
         let mut file_name = final_url
