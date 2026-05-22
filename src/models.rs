@@ -9,4 +9,5 @@ pub enum DownloadStatus {
     Finished,
     Failed(String),
     Cancelled,
+    Paused
 }
